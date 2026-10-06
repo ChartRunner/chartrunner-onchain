@@ -199,10 +199,10 @@ The rule covers operator kinds. For user kinds it is not defined yet; it will be
 Verification is independent only if the operator address is published somewhere other than the app being checked.
 This section is that place.
 
-| cluster        | operator address |
-| -------------- | ---------------- |
-| `devnet`       | TODO(owner): publish once the devnet operator key exists |
-| `mainnet-beta` | TODO(owner): publish once the mainnet operator key exists |
+| cluster        | operator address                               | in effect from |
+| -------------- | ---------------------------------------------- | -------------- |
+| `mainnet-beta` | `68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy` | 2026-10-06     |
+| `devnet`       | none: ChartRunner does not anchor on devnet     |                |
 
 An address listed here is a public key only. Rotating the operator key adds a row with the date it took effect; old
 rows stay, because anchors signed by an earlier key remain valid. The private key is never in this repository.
