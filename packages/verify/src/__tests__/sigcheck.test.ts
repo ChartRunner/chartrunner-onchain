@@ -139,7 +139,7 @@ describe("CLI --verify-signature and --check-equivocation", async () => {
     const f = (async (_url: string, init: RequestInit) => {
       const { method, params } = JSON.parse(init.body as string);
       let result: unknown = null;
-      if (method === "getSignaturesForAddress") result = all.map((x) => ({ signature: x.tx.signature, slot: x.slot, err: null, memo: `[${x.memo.length}] ${x.memo}` }));
+      if (method === "getSignaturesForAddress") result = params[1].before ? [] : all.map((x) => ({ signature: x.tx.signature, slot: x.slot, err: null, memo: `[${x.memo.length}] ${x.memo}` }));
       if (method === "getTransaction") {
         const x = bySig.get(params[0]) ?? (params[0] === t.signature ? { memo, slot: 50, tx: t } : undefined);
         if (x) result = params[1].encoding === "base64" ? { slot: x.slot, meta: { err: null }, transaction: [x.tx.base64, "base64"] } : { ...parsedTx(x.tx.signature, payer.address, [x.memo]), slot: x.slot };
@@ -161,11 +161,29 @@ describe("CLI --verify-signature and --check-equivocation", async () => {
     expect(s.out.join("\n")).toMatch(/signatures verified locally/);
     expect(s.out.join("\n")).toMatch(/only operator anchor for this kind\/id \(2 signatures scanned\)/);
   });
-  it("equivocation: a second anchor with another root fails with exit 1", async () => {
+  it("equivocation, and an earlier anchor with another root exists: the checked one is void, exit 1", async () => {
     const memo = formatMemo({ kind: "cup", id: "c1", root, count });
     const s = await setup([{ memo, slot: 50, self: true }, { memo: formatMemo({ kind: "cup", id: "c1", root: "f".repeat(64), count }), slot: 40 }]);
     expect(await s.run("--check-equivocation")).toBe(1);
-    expect(s.err.join("\n")).toMatch(/MISMATCH {2}equivocation/);
+    expect(s.err.join("\n")).toMatch(/MISMATCH {2}equivocation: .*this is not the anchor that counts \(the first finalized anchor is /);
+  });
+  it("equivocation, and the checked anchor is the first finalized: exit 0 with a loud warning", async () => {
+    const memo = formatMemo({ kind: "cup", id: "c1", root, count });
+    const s = await setup([{ memo, slot: 50, self: true }, { memo: formatMemo({ kind: "cup", id: "c1", root: "f".repeat(64), count }), slot: 60 }]);
+    expect(await s.run("--check-equivocation")).toBe(0);
+    expect(s.err.join("\n")).toMatch(/WARNING {3}EQUIVOCATION: .*This anchor is the first finalized one/);
+  });
+  it("the scan missing the anchor in hand still counts it (no 'none'), and --max-signatures is passed through", async () => {
+    const s = await setup([{ memo: formatMemo({ kind: "cup", id: "c2", root, count }), slot: 60 }, { memo: formatMemo({ kind: "cup", id: "c3", root, count }), slot: 61 }]);
+    expect(await s.run("--check-equivocation")).toBe(0);
+    expect(s.out.join("\n")).toMatch(/only operator anchor for this kind\/id/);
+    expect(await s.run("--check-equivocation", "--max-signatures", "1")).toBe(2);
+    expect(s.err.join("\n")).toMatch(/equivocation_unchecked: The root matches, but uniqueness was NOT checked \(scan_incomplete\)/);
+  });
+  it("--max-signatures must be a positive integer and needs --check-equivocation", async () => {
+    const s = await setup([]);
+    expect(await s.run("--check-equivocation", "--max-signatures", "0")).toBe(2);
+    expect(await s.run("--max-signatures", "10")).toBe(2);
   });
   it("duplicate: exit 0 with a warning naming the first finalized anchor", async () => {
     const memo = formatMemo({ kind: "cup", id: "c1", root, count });

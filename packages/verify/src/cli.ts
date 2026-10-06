@@ -1,7 +1,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { cupLeavesFromStandings } from "./leaves.ts";
-import { checkEquivocation, type EquivocationResult } from "./equivocation.ts";
+import { anchorStanding, checkEquivocation, DEFAULT_MAX_SIGNATURES, type AnchorStanding, type EquivocationResult } from "./equivocation.ts";
 import { fetchMemo, type SignatureCheck } from "./rpc.ts";
 import { verifyAgainstMemo, type VerifyResult } from "./verify.ts";
 import type { ProofStep } from "./merkle.ts";
@@ -26,9 +26,12 @@ export const USAGE = `chartrunner-verify: check a ChartRunner result against its
   --kind / --id     also require the memo to be for this kind / id
   --verify-signature   with --sig: also fetch the wire transaction and verify its Ed25519 signatures locally
                        (then memo, fee payer and signers come from the signed bytes, not the RPC's word)
-  --check-equivocation with --sig, operator kinds: scan the operator's finalized history (SPEC 2.5). A second
-                       anchor for the same kind/id with another root or count fails (exit 1); a duplicate or an
-                       anchor that is not the first finalized one is a warning; an incomplete scan is an error
+  --check-equivocation with --sig, operator kinds: scan the operator's finalized history (SPEC 2.5). The first
+                       finalized operator anchor for the kind/id wins: if another anchor has a different root or
+                       count, the checked one passes only if it is the first finalized (with a loud warning) and
+                       fails (exit 1) otherwise; a duplicate (same root and count) is a warning; a scan that
+                       cannot complete is an error (exit 2), never a pass
+  --max-signatures <n> with --check-equivocation: how many operator signatures to read at most (default ${DEFAULT_MAX_SIGNATURES})
   --json            print the result as JSON
   -h, --help
 
@@ -52,11 +55,12 @@ interface Args {
   help: boolean;
   verifySignature: boolean;
   checkEquivocation: boolean;
+  "max-signatures"?: string;
 }
 
 function parseArgs(argv: string[]): Args | string {
   const out: Args = { json: false, help: false, verifySignature: false, checkEquivocation: false };
-  const valued = new Set(["rows", "proof", "sig", "rpc", "memo", "signer", "kind", "id"]);
+  const valued = new Set(["rows", "proof", "sig", "rpc", "memo", "signer", "kind", "id", "max-signatures"]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === "-h" || a === "--help") out.help = true;
@@ -120,6 +124,15 @@ export async function main(argv: string[], io: { out: (s: string) => void; err: 
     io.err("error: --sig needs --signer <operator address>. Anyone can post a memo for any id, so a root match alone does not show ChartRunner anchored it.");
     return 2;
   }
+  const maxSignatures = args["max-signatures"] === undefined ? DEFAULT_MAX_SIGNATURES : Number(args["max-signatures"]);
+  if (!Number.isSafeInteger(maxSignatures) || maxSignatures < 1) {
+    io.err("error: --max-signatures must be a positive integer");
+    return 2;
+  }
+  if (args["max-signatures"] !== undefined && !args.checkEquivocation) {
+    io.err("error: --max-signatures only applies with --check-equivocation");
+    return 2;
+  }
   if ((args.verifySignature || args.checkEquivocation) && args.sig === undefined) {
     io.err("error: --verify-signature and --check-equivocation read the chain: they need --sig, --rpc and --signer");
     return 2;
@@ -150,18 +163,25 @@ export async function main(argv: string[], io: { out: (s: string) => void; err: 
   const result = await verifyAgainstMemo({ ...loaded, memoText: memoText!, expect } as Parameters<typeof verifyAgainstMemo>[0]);
   if (!result.ok || !args.checkEquivocation || !chain) return report(io, args.json, result, chain);
 
-  // SPEC 2.5: is this the only anchor the operator wrote for this kind/id?
+  // SPEC 2.5: the first finalized operator memo for this kind/id wins. Is the checked one it?
   const kind = result.memo.kind;
   if (!isOperatorKind(kind)) return report(io, args.json, { ok: false, reason: "input_invalid", message: "--check-equivocation applies to operator kinds only." }, chain);
-  const eq = await checkEquivocation({ rpcUrl: args.rpc!, operator: args.signer!, kind, id: result.memo.id });
+  const eq = await checkEquivocation({ rpcUrl: args.rpc!, operator: args.signer!, kind, id: result.memo.id, maxSignatures });
   chain.equivocation = eq;
-  if (!eq.ok) return report(io, args.json, { ok: false, reason: "equivocation_unchecked", message: `Could not check for a second anchor (${eq.reason}): ${eq.message}` }, chain);
-  if (eq.status === "equivocation") {
-    const roots = eq.anchors.map((a) => `${a.signature} slot ${a.slot ?? "?"} root ${a.root} count ${a.count}`).join("; ");
-    return report(io, args.json, { ok: false, reason: "equivocation", message: `The operator anchored ${kind} ${result.memo.id} more than once with different roots or counts: ${roots}` }, chain);
+  if (!eq.ok) {
+    return report(io, args.json, { ok: false, reason: "equivocation_unchecked", message: `The root matches, but uniqueness was NOT checked (${eq.reason}): ${eq.message}` }, chain);
   }
-  if (eq.status !== "unique") chain.warnings.push(equivocationWarning(eq, args.sig!));
-  else if (eq.winner && eq.winner.signature !== args.sig) chain.warnings.push(`the operator's only anchor for this kind/id is ${eq.winner.signature}, not ${args.sig}`);
+  // The anchor in hand counts too: add it before classifying, so "one in hand + one in history" is never "unique".
+  const st = anchorStanding(eq, { signature: args.sig!, slot: chain.slot, blockTime: null, memo: memoText!, root: result.memo.root, count: result.memo.count });
+  chain.equivocation = st.result;
+  chain.standing = st.standing;
+  if (!st.pass) {
+    const list = st.result.anchors.map((a) => `${a.signature} slot ${a.slot ?? "?"} root ${a.root} count ${a.count}`).join("; ");
+    const why = st.winner ? `the first finalized anchor is ${st.winner.signature}` : "two different anchors share the lowest slot, so none wins";
+    return report(io, args.json, { ok: false, reason: "equivocation", message: `The operator anchored ${kind} ${result.memo.id} more than once with different roots or counts, and this is not the anchor that counts (${why}): ${list}` }, chain);
+  }
+  const w = standingWarning(st);
+  if (w) chain.warnings.push(w);
   return report(io, args.json, result, chain);
 }
 
@@ -170,13 +190,16 @@ interface Chain {
   slot: number | null;
   signatureCheck: SignatureCheck;
   equivocation?: EquivocationResult;
+  standing?: AnchorStanding["standing"];
   warnings: string[];
 }
 
-function equivocationWarning(eq: Extract<EquivocationResult, { ok: true }>, sig: string): string {
-  if (eq.status === "none") return "the equivocation scan found no anchor for this kind/id in the operator's finalized history (RPC lag, or a different signer?)";
-  const first = eq.winner?.signature;
-  return `the operator anchored this kind/id ${eq.anchors.length} times with the same root and count (duplicate)${first && first !== sig ? `; the first finalized is ${first}` : ""}`;
+function standingWarning(st: AnchorStanding): string | null {
+  if (st.standing === "duplicate") return `the operator anchored this kind/id ${st.count} times with the same root and count (duplicate); the first finalized is ${st.first?.signature ?? "unknown"}`;
+  if (st.standing === "equivocation_first") {
+    return `EQUIVOCATION: the operator also anchored this kind/id with a different root or count (${st.others.map((a) => `${a.signature} root ${a.root} count ${a.count}`).join("; ")}). This anchor is the first finalized one, so it is the one that counts; the later ones are void.`;
+  }
+  return null;
 }
 
 function report(io: { out: (s: string) => void; err: (s: string) => void }, json: boolean, r: VerifyResult | { ok: false; reason: string; message: string }, chain?: Chain): 0 | 1 | 2 {
@@ -188,7 +211,7 @@ function report(io: { out: (s: string) => void; err: (s: string) => void }, json
       io.out(`          paid by ${chain.feePayer ?? "unknown"}${chain.slot !== null ? `, slot ${chain.slot}` : ""}`);
       if (chain.signatureCheck === "verified") io.out("          signatures verified locally over the transaction bytes");
       if (chain.signatureCheck === "unsupported") io.out("          signatures NOT verified locally (no Ed25519 in this runtime); the RPC's answer was trusted");
-      if (chain.equivocation?.ok && chain.equivocation.status === "unique") io.out(`          only operator anchor for this kind/id (${chain.equivocation.scanned} signatures scanned)`);
+      if (chain.standing === "sole" && chain.equivocation?.ok) io.out(`          only operator anchor for this kind/id (${chain.equivocation.scanned} signatures scanned)`);
     }
   } else io.err(`${code === 1 ? "MISMATCH" : "ERROR"}  ${r.reason}: ${r.message}`);
   for (const w of chain?.warnings ?? []) io.err(`WARNING   ${w}`);

@@ -127,9 +127,11 @@ chartrunner-verify --proof proof.json  --memo "<memo text>"      # one entry + p
 `{"leaf": "<canonical json>", "proof": [{"side": "L"|"R", "hash": "<hex>"}]}`. `--signer` is required with `--sig`: anyone can post a memo for any id, so a matching root only means something when the
 transaction was paid by the operator address ChartRunner publishes. Add `--kind`/`--id` to pin the memo
 to a snapshot and `--json` for machine output. `--verify-signature` checks the transaction's signatures locally (above).
-`--check-equivocation` scans the operator's finalized history for other anchors of the same kind/id (SPEC 2.5): a
-different root or count is a mismatch (exit `1`), a duplicate or an anchor that is not the first finalized one is a
-warning, and a scan that cannot complete is an error (exit `2`).
+`--check-equivocation` scans the operator's finalized history for other anchors of the same kind/id (SPEC 2.5) and
+applies "first finalized operator memo wins" to the transaction checked: if another anchor has a different root or
+count, the checked one passes (with a loud warning) only if it is the first finalized, and is a mismatch (exit `1`)
+otherwise; a duplicate is a warning; a scan that cannot complete is an error (exit `2`: the root matched, but uniqueness
+was not checked). `--max-signatures <n>` sets how much history to read (default 100000).
 
 Exit codes: `0` verified, `1` mismatch (the data does not match the anchor, or the memo is not a valid anchor),
 `2` error (bad input, no RPC given, RPC outage, transaction not found, ...). An outage is never a pass.
@@ -158,7 +160,8 @@ built library itself only needs a runtime with WebCrypto and `fetch` (Node 20+ o
 | `cupLeaf`, `boardLeaf`, `cupLeavesFromStandings`, `userHash`, `handleHash`, `runHash` | build the exact leaves the app anchors |
 | `KINDS`, `ANCHOR_KINDS`, `OPERATOR_KINDS`, `USER_KINDS`, `kindInfo`, `isOperatorKind`, `isUserKind` | the kinds registry: signer model, status, id and count rule of each kind |
 | `signerModelOf(memo)` | which signer rule `expectSigner` applies to a memo |
-| `checkEquivocation({ rpcUrl, operator, kind, id })` | scan the operator's history: `none`, `unique`, `duplicate` or `equivocation`, plus the first finalized anchor |
+| `checkEquivocation({ rpcUrl, operator, kind, id, maxSignatures? })` | scan the operator's history: `none`, `unique`, `duplicate` or `equivocation`, plus the first finalized anchor |
+| `anchorStanding(result, checked)` | add the anchor being verified to a scan result and apply the first-finalized-wins rule: `sole`, `duplicate`, `equivocation_first` (pass, warn) or `not_first` (fail) |
 | `parseLegacyCr1(text)` | read a legacy `cr1:<kind>:<name>:<hash>` memo (frozen, read-only; never a v1 anchor) |
 
 Failure reasons from `verifyAgainstMemo`: `memo_malformed`, `memo_subject_mismatch`, `rows_invalid`, `leaf_invalid`,

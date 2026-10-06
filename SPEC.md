@@ -133,9 +133,11 @@ is `fetchMemo` / `verifyAgainstSignature` in `packages/verify/src/rpc.ts`.
 7. **Strict parse.** The memo text MUST pass the grammar in 2.1 exactly as stored on chain.
 8. **Then** run the offline checks in section 6 against that memo.
 9. **Equivocation (operator kinds).** A single transaction cannot show that it is the only anchor for its (kind, id).
-   A verifier that needs that assurance runs the scan in 2.5 (reference CLI: `--check-equivocation`; `equivocation` is a
-   mismatch, exit `1`; a scan that could not complete is an error, exit `2`; `duplicate`, `none`, or an anchor that is
-   not the first finalized one is a warning).
+   A verifier that needs that assurance runs the scan in 2.5 and applies its rule to the transaction in hand
+   (reference CLI: `--check-equivocation`, limit `--max-signatures`). A checked anchor that is not the first finalized
+   one, when another anchor has a different root or count, is a mismatch (exit `1`); the first finalized one passes
+   with a prominent warning; a duplicate passes with a warning; a scan that could not complete is an error (exit `2`)
+   and the result MUST be presented as "root verified, uniqueness not checked", never as plainly verified.
 10. **Local signature check (optional, recommended where available).** Rules 3 to 6 take the RPC's word for the
    transaction's contents. A verifier MAY also fetch the wire transaction (`encoding: "base64"`), verify every required
    Ed25519 signature over the message bytes itself, and require the signed bytes to carry the requested signature, the
@@ -164,12 +166,29 @@ anyway:
   Verifiers SHOULD report it prominently, and the first finalized memo still wins.
 - two different memos in the same lowest slot: equivocation with **no winner**, since slot order cannot decide.
 
+Applied to one transaction being verified (the "checked" anchor), the verifier first adds it to the anchors the scan
+found (it is an anchor whether or not the scan saw it, for example because of RPC lag), then classifies:
+
+| situation | verdict |
+| --------- | ------- |
+| it is the only anchor | pass |
+| others with the same root and count (duplicate) | pass, with a warning naming the first finalized |
+| others with a different root or count, and it is the first finalized | pass, with a prominent equivocation warning: this is the anchor that counts, the later ones are void |
+| others with a different root or count, and it is not the first finalized (or there is no winner) | fail: this anchor is void |
+| the scan could not complete | not a pass: "root verified, uniqueness not checked" |
+
+The scan reads the history until the node returns an **empty** page; a page shorter than the requested limit is not the
+end of history. A page whose cursor does not advance (its last signature was already seen) ends the scan as incomplete.
+Anyone can send transactions to the operator address, so the history can be long; the reference default reads up to
+100000 signatures and the limit is configurable.
+
 The reference helper `checkEquivocation({ rpcUrl, operator, kind, id })` in `packages/verify/src/equivocation.ts`
 pages through the operator address's finalized signature history (`getSignaturesForAddress`), skips failed
 transactions and those whose reported memo does not name the (kind, id), re-reads every remaining candidate with the
 rules in 2.4, and returns `none`, `unique`, `duplicate` or `equivocation` together with every anchor found and the
-winner. A history it could not read completely (outage, pruned transaction, more signatures than its limit) is a failure
-with a reason, never `none` or `unique`.
+winner. A history it could not read completely (outage, pruned transaction, more signatures than its limit, a cursor that
+does not advance) is a failure with a reason, never `none` or `unique`. `anchorStanding(result, checked)` applies the
+table above to a checked anchor.
 
 The rule covers operator kinds. For user kinds it is not defined yet; it will be specified with their leaf schemas.
 

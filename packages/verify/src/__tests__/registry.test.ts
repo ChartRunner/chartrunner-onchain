@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorStanding,
   ANCHOR_KINDS,
+  DEFAULT_MAX_SIGNATURES,
   checkEquivocation,
   fetchMemo,
   formatMemo,
@@ -164,7 +166,7 @@ interface FakeTx {
 }
 
 /** A fake RPC: getSignaturesForAddress pages newest first, getTransaction by signature. */
-function fakeRpc(txs: FakeTx[], o: { omitMemoField?: boolean; dropTx?: string; failMethod?: string } = {}) {
+function fakeRpc(txs: FakeTx[], o: { omitMemoField?: boolean; dropTx?: string; failMethod?: string; maxPage?: number; stuckCursor?: boolean } = {}) {
   const calls: { method: string; params: any[] }[] = [];
   const newestFirst = [...txs].sort((a, b) => b.slot - a.slot);
   const f = (async (_url: string, init: RequestInit) => {
@@ -173,8 +175,9 @@ function fakeRpc(txs: FakeTx[], o: { omitMemoField?: boolean; dropTx?: string; f
     if (method === o.failMethod) throw new TypeError("fetch failed");
     if (method === "getSignaturesForAddress") {
       const { limit, before } = params[1];
-      const start = before ? newestFirst.findIndex((t) => t.signature === before) + 1 : 0;
-      const page = newestFirst.slice(start, start + limit).map((t) => ({
+      // stuckCursor: a broken node that ignores `before` and serves the first page again.
+      const start = before && !o.stuckCursor ? newestFirst.findIndex((t) => t.signature === before) + 1 : 0;
+      const page = newestFirst.slice(start, start + Math.min(limit, o.maxPage ?? limit)).map((t) => ({
         signature: t.signature,
         slot: t.slot,
         err: t.err ?? null,
@@ -242,8 +245,26 @@ describe("checkEquivocation", () => {
     const txs = Array.from({ length: 7 }, (_, i) => ({ signature: sig(i + 1), slot: 100 + i, memo: i === 0 || i === 6 ? m("cup-1") : m("cup-9") }));
     const { f, calls } = fakeRpc(txs);
     expect(await checkEquivocation({ ...base, fetch: f, pageSize: 3 })).toMatchObject({ ok: true, status: "duplicate", scanned: 7, winner: { slot: 100 } });
-    expect(calls.filter((c) => c.method === "getSignaturesForAddress")).toHaveLength(3);
+    expect(calls.filter((c) => c.method === "getSignaturesForAddress")).toHaveLength(4); // 3 pages + the empty one that ends it
     expect(calls.every((c) => c.method !== "getSignaturesForAddress" || c.params[1].commitment === "finalized")).toBe(true);
+  });
+  it("a short page is not the end of history: only an empty page is", async () => {
+    // The node returns at most 2 per page although 1000 were asked for; the older anchor is on page 3.
+    const txs = [{ signature: sig(1), slot: 10, memo: m("cup-1", ROOT_B) }, ...Array.from({ length: 4 }, (_, i) => ({ signature: sig(i + 2), slot: 20 + i, memo: m("cup-9") })), { signature: sig(9), slot: 50, memo: m("cup-1") }];
+    const r = await checkEquivocation({ ...base, fetch: fakeRpc(txs, { maxPage: 2 }).f });
+    expect(r).toMatchObject({ ok: true, status: "equivocation", scanned: 6, winner: { signature: sig(1) } });
+  });
+  it("a cursor that does not move is scan_incomplete, never an answer", async () => {
+    const txs = Array.from({ length: 3 }, (_, i) => ({ signature: sig(i + 1), slot: 100 + i, memo: m("cup-9") }));
+    const r = await checkEquivocation({ ...base, fetch: fakeRpc(txs, { stuckCursor: true }).f, pageSize: 2 });
+    expect(r).toMatchObject({ ok: false, reason: "scan_incomplete" });
+    expect(!r.ok && r.message).toMatch(/same page/);
+  });
+  it("defaults to a large signature limit and says how to raise it", async () => {
+    expect(DEFAULT_MAX_SIGNATURES).toBe(100_000);
+    const txs = Array.from({ length: 5 }, (_, i) => ({ signature: sig(i + 1), slot: 100 + i, memo: m("cup-9") }));
+    const r = await checkEquivocation({ ...base, fetch: fakeRpc(txs).f, pageSize: 2, maxSignatures: 4 });
+    expect(!r.ok && r.message).toMatch(/Read 4 signatures .* without reaching its start .*uniqueness was not checked.*--max-signatures/);
   });
   it("never answers from a partial scan or an outage", async () => {
     const txs = Array.from({ length: 5 }, (_, i) => ({ signature: sig(i + 1), slot: 100 + i, memo: m("cup-9") }));
@@ -261,5 +282,33 @@ describe("checkEquivocation", () => {
     expect(await checkEquivocation({ ...base, id: "a b", fetch: never })).toMatchObject({ ok: false, reason: "input_invalid" });
     expect(await checkEquivocation({ ...base, operator: "not base58!", fetch: never })).toMatchObject({ ok: false, reason: "input_invalid" });
     expect(await checkEquivocation({ ...base, rpcUrl: "file:///etc/passwd", fetch: never })).toMatchObject({ ok: false, reason: "rpc_url_invalid" });
+  });
+});
+
+describe("anchorStanding (first finalized operator memo wins)", () => {
+  const sighting = (n: number, slot: number | null, root = ROOT) => ({ signature: sig(n), slot, blockTime: null, memo: m("cup-1", root), root, count: 3 });
+  const scan = (anchors: ReturnType<typeof sighting>[]) => ({ ok: true as const, status: "none" as const, winner: null, anchors, scanned: 9 });
+
+  it("the anchor in hand counts: in hand + a different one in history is equivocation, never 'unique'", () => {
+    const st = anchorStanding({ ...scan([sighting(2, 5, ROOT_B)]), status: "unique", winner: sighting(2, 5, ROOT_B) }, sighting(1, 10));
+    expect(st).toMatchObject({ standing: "not_first", pass: false, winner: { signature: sig(2) } });
+    expect(st.result.status).toBe("equivocation");
+    expect(st.result.anchors.map((a) => a.signature)).toEqual([sig(2), sig(1)]);
+  });
+  it("an empty scan plus the anchor in hand is the sole anchor", () => {
+    expect(anchorStanding(scan([]), sighting(1, 10))).toMatchObject({ standing: "sole", pass: true, result: { status: "unique" } });
+  });
+  it("the checked anchor is the first finalized: pass, flagged as equivocation_first", () => {
+    const st = anchorStanding(scan([sighting(2, 30, ROOT_B)]), sighting(1, 10));
+    expect(st).toMatchObject({ standing: "equivocation_first", pass: true, others: [{ signature: sig(2) }] });
+  });
+  it("no winner (two different memos in the lowest slot): fail", () => {
+    expect(anchorStanding(scan([sighting(2, 10, ROOT_B)]), sighting(1, 10))).toMatchObject({ standing: "not_first", pass: false, winner: null });
+  });
+  it("same root and count elsewhere: duplicate, pass with the first named", () => {
+    expect(anchorStanding(scan([sighting(2, 5)]), sighting(1, 10))).toMatchObject({ standing: "duplicate", pass: true, first: { signature: sig(2) }, count: 2 });
+  });
+  it("does not double-count the checked anchor when the scan already found it", () => {
+    expect(anchorStanding(scan([sighting(1, 10)]), sighting(1, 10))).toMatchObject({ standing: "sole", result: { anchors: [{ signature: sig(1) }] } });
   });
 });
