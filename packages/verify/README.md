@@ -105,7 +105,14 @@ await verifyAgainstMemo({ leaf: p.leaf, proof: p.proof, memoText });
 
 `fetchMemo` / `verifyAgainstSignature` read at `finalized` commitment by default (pass `commitment: "confirmed"` for
 speed at the cost of rollback risk), and require the response to be the transaction you asked for, with execution
-metadata showing success. They use `fetch` and work in the browser if your RPC allows CORS.
+metadata showing success. They use `fetch` and work in the browser if your RPC allows CORS. Every Memo-program
+instruction counts: a transaction with two is `multiple_memos`, never "the first one".
+
+With `verifySignature: true`, `fetchMemo` also fetches the wire transaction and verifies its Ed25519 signatures with
+WebCrypto, so memo, fee payer and signers come from bytes the keys signed, not from the RPC's JSON. The result's
+`signatureCheck` is `verified`, `unsupported` (no Ed25519 in this runtime: the answer rests on the RPC alone, and says
+so) or `not_requested`. Bytes that disagree with the RPC's JSON fail with `tx_mismatch`; a bad signature with
+`bad_signature`.
 
 ## CLI
 
@@ -119,7 +126,10 @@ chartrunner-verify --proof proof.json  --memo "<memo text>"      # one entry + p
 (`{"cupId": "...", "results": {"standings": [...]}}`, converted to rows exactly as the app does). `proof.json` is
 `{"leaf": "<canonical json>", "proof": [{"side": "L"|"R", "hash": "<hex>"}]}`. `--signer` is required with `--sig`: anyone can post a memo for any id, so a matching root only means something when the
 transaction was paid by the operator address ChartRunner publishes. Add `--kind`/`--id` to pin the memo
-to a snapshot and `--json` for machine output.
+to a snapshot and `--json` for machine output. `--verify-signature` checks the transaction's signatures locally (above).
+`--check-equivocation` scans the operator's finalized history for other anchors of the same kind/id (SPEC 2.5): a
+different root or count is a mismatch (exit `1`), a duplicate or an anchor that is not the first finalized one is a
+warning, and a scan that cannot complete is an error (exit `2`).
 
 Exit codes: `0` verified, `1` mismatch (the data does not match the anchor, or the memo is not a valid anchor),
 `2` error (bad input, no RPC given, RPC outage, transaction not found, ...). An outage is never a pass.
@@ -142,7 +152,8 @@ built library itself only needs a runtime with WebCrypto and `fetch` (Node 20+ o
 | `formatMemo(fields)` / `parseMemo(text)` | build / strictly parse the memo (`parseMemo` returns `null` on anything malformed) |
 | `parseMemoStrict(text)` | like `parseMemo` but with a failure reason |
 | `verifyAgainstMemo({ rows \| leaf+proof, memoText, expect? })` | `{ ok: true, ... }` or `{ ok: false, reason, message }` |
-| `fetchMemo(signature, { rpcUrl })` | read the memo of a transaction via `getTransaction` |
+| `fetchMemo(signature, { rpcUrl, verifySignature? })` | read the memo of a transaction via `getTransaction`; optionally verify its signatures locally |
+| `checkTransactionSignatures(base64, memoProgramId)` | decode a wire transaction and verify every Ed25519 signature (low level) |
 | `verifyAgainstSignature({ signature, rpcUrl, rows \| leaf+proof })` | fetch + verify |
 | `cupLeaf`, `boardLeaf`, `cupLeavesFromStandings`, `userHash`, `handleHash`, `runHash` | build the exact leaves the app anchors |
 | `KINDS`, `ANCHOR_KINDS`, `OPERATOR_KINDS`, `USER_KINDS`, `kindInfo`, `isOperatorKind`, `isUserKind` | the kinds registry: signer model, status, id and count rule of each kind |
@@ -153,7 +164,7 @@ built library itself only needs a runtime with WebCrypto and `fetch` (Node 20+ o
 Failure reasons from `verifyAgainstMemo`: `memo_malformed`, `memo_subject_mismatch`, `rows_invalid`, `leaf_invalid`,
 `proof_invalid`, `root_mismatch`, `count_mismatch`, `input_invalid`. From the RPC helpers: `rpc_url_invalid`,
 `signature_invalid`, `signature_mismatch`, `meta_missing`, `rpc_unreachable`, `rpc_error`, `tx_not_found`, `tx_failed`, `no_memo`, `multiple_memos`,
-`signer_mismatch`. From `checkEquivocation`: `input_invalid`, `rpc_url_invalid`, `rpc_unreachable`, `rpc_error`,
+`signer_mismatch`, and with `verifySignature`: `tx_undecodable`, `bad_signature`, `tx_mismatch`. From `checkEquivocation`: `input_invalid`, `rpc_url_invalid`, `rpc_unreachable`, `rpc_error`,
 `scan_incomplete` (never answered with `none` or `unique` from a partial history).
 
 ## Development

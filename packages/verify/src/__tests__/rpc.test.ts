@@ -23,7 +23,15 @@ const opts = (f: typeof fetch) => ({ rpcUrl: "https://rpc.example", fetch: f });
 
 describe("fetchMemo", () => {
   it("reads the memo, fee payer and slot", async () => {
-    expect(await fetchMemo(SIG, opts(reply(tx("hello"))))).toEqual({ ok: true, memo: "hello", feePayer: PAYER, signers: [PAYER], slot: 77 });
+    expect(await fetchMemo(SIG, opts(reply(tx("hello"))))).toEqual({ ok: true, memo: "hello", feePayer: PAYER, signers: [PAYER], slot: 77, signatureCheck: "not_requested" });
+  });
+  it("counts every Memo-program instruction, parsed or not: a second one is refused, never 'take the first'", async () => {
+    const two = tx("chartrunner:v1:cup:c1:" + "a".repeat(64) + ":1");
+    (two.transaction.message.instructions as unknown[]).push({ programId: MEMO_PROGRAM_ID, data: "3Bxs4Bc3VYuGVB19" });
+    expect(await fetchMemo(SIG, opts(reply(two)))).toMatchObject({ ok: false, reason: "multiple_memos" });
+    const unparsed = tx("x");
+    (unparsed.transaction.message.instructions as { parsed?: unknown }[])[1]!.parsed = undefined;
+    expect(await fetchMemo(SIG, opts(reply(unparsed)))).toMatchObject({ ok: false, reason: "no_memo" });
   });
   it("sends the getTransaction request to the supplied URL only", async () => {
     let seen: { url: string; body: any } | undefined;

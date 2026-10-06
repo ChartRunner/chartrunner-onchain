@@ -5,3 +5,4 @@ export * from "./verify.ts";
 export * from "./rpc.ts";
 export * from "./equivocation.ts";
 export * from "./legacy.ts";
+export * from "./sigcheck.ts";

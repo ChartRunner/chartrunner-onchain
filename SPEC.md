@@ -116,8 +116,10 @@ is `fetchMemo` / `verifyAgainstSignature` in `packages/verify/src/rpc.ts`.
 3. **Right transaction.** The returned transaction's first signature MUST equal the signature that was requested.
 4. **Executed successfully.** Execution metadata MUST be present and `meta.err` MUST be `null`. Missing metadata is
    a failure, never a success.
-5. **Exactly one memo.** The transaction MUST contain exactly one instruction of the Memo program in 2.3 whose parsed
-   data is a string. Zero is `no_memo`, more than one is `multiple_memos`.
+5. **Exactly one memo.** The transaction MUST contain exactly one instruction of the Memo program in 2.3, counting
+   every such instruction whether or not the RPC could parse its data, and that one instruction's parsed data MUST be a
+   string. Zero (or one that is not readable text) is `no_memo`; more than one is `multiple_memos`. A verifier MUST NOT
+   pick "the first" memo of a transaction that has several.
 6. **Signer, by the kind's signer model.** Anyone can post a memo with any text, so a root match without this check
    proves nothing.
    - Operator kinds, and any text that is not a valid `chartrunner:v1` memo: the fee payer (`accountKeys[0]`) MUST
@@ -131,7 +133,17 @@ is `fetchMemo` / `verifyAgainstSignature` in `packages/verify/src/rpc.ts`.
 7. **Strict parse.** The memo text MUST pass the grammar in 2.1 exactly as stored on chain.
 8. **Then** run the offline checks in section 6 against that memo.
 9. **Equivocation (operator kinds).** A single transaction cannot show that it is the only anchor for its (kind, id).
-   A verifier that needs that assurance runs the scan in 2.5.
+   A verifier that needs that assurance runs the scan in 2.5 (reference CLI: `--check-equivocation`; `equivocation` is a
+   mismatch, exit `1`; a scan that could not complete is an error, exit `2`; `duplicate`, `none`, or an anchor that is
+   not the first finalized one is a warning).
+10. **Local signature check (optional, recommended where available).** Rules 3 to 6 take the RPC's word for the
+   transaction's contents. A verifier MAY also fetch the wire transaction (`encoding: "base64"`), verify every required
+   Ed25519 signature over the message bytes itself, and require the signed bytes to carry the requested signature, the
+   same fee payer, the same signers and exactly one Memo instruction with the same text. A mismatch (`tx_mismatch`),
+   an invalid signature (`bad_signature`) or undecodable bytes (`tx_undecodable`) MUST fail. Execution status
+   (`meta.err`) is not signed and still comes from the RPC. A runtime without Ed25519 MUST report the check as not
+   performed, never as passed. Reference: `fetchMemo(..., { verifySignature: true })` (`signatureCheck`:
+   `verified` / `unsupported` / `not_requested`), `sigcheck.ts`, CLI `--verify-signature`.
 
 **An outage is not an answer.** Any RPC failure (unreachable, HTTP error, JSON-RPC error, unreadable body, transaction
 not found) MUST be reported as an error with a reason. It MUST NOT be reported as "verified", and it MUST NOT be read as
@@ -412,6 +424,7 @@ memo is never a `chartrunner:v1` anchor: `parseMemo` rejects it, and `verifyAgai
 | pseudonyms, board and cup leaf schemas | `leaves.ts` |
 | offline verification and failure reasons | `verify.ts` |
 | reading an anchor transaction over JSON-RPC, the rules in 2.4 | `rpc.ts` |
+| wire-transaction decoding and local Ed25519 signature check (2.4 rule 10) | `sigcheck.ts` |
 | command-line verifier and exit codes | `cli.ts` |
 | kinds registry, signer models, id grammar | `kinds.ts` |
 | equivocation scan (2.5) | `equivocation.ts` |
