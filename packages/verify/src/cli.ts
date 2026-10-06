@@ -28,9 +28,10 @@ export const USAGE = `chartrunner-verify: check a ChartRunner result against its
                        (then memo, fee payer and signers come from the signed bytes, not the RPC's word)
   --check-equivocation with --sig, operator kinds: scan the operator's finalized history (SPEC 2.5). The first
                        finalized operator anchor for the kind/id wins: if another anchor has a different root or
-                       count, the checked one passes only if it is the first finalized (with a loud warning) and
-                       fails (exit 1) otherwise; a duplicate (same root and count) is a warning; a scan that
-                       cannot complete is an error (exit 2), never a pass
+                       count, the checked one passes only if it has the first finalized anchor's root and count
+                       (with a loud warning) and fails (exit 1) otherwise; a duplicate (same root and count) is a
+                       warning; a scan that cannot complete, or does not find the checked transaction, is an
+                       error (exit 2), never a pass
   --max-signatures <n> with --check-equivocation: how many operator signatures to read at most (default ${DEFAULT_MAX_SIGNATURES})
   --json            print the result as JSON
   -h, --help
@@ -171,10 +172,18 @@ export async function main(argv: string[], io: { out: (s: string) => void; err: 
   if (!eq.ok) {
     return report(io, args.json, { ok: false, reason: "equivocation_unchecked", message: `The root matches, but uniqueness was NOT checked (${eq.reason}): ${eq.message}` }, chain);
   }
-  // The anchor in hand counts too: add it before classifying, so "one in hand + one in history" is never "unique".
+  // The checked transaction must be among the anchors the completed scan found; otherwise the scan says nothing about it.
   const st = anchorStanding(eq, { signature: args.sig!, slot: chain.slot, blockTime: null, memo: memoText!, root: result.memo.root, count: result.memo.count });
   chain.equivocation = st.result;
   chain.standing = st.standing;
+  if (st.standing === "not_in_scan") {
+    return report(
+      io,
+      args.json,
+      { ok: false, reason: "equivocation_unchecked", message: `The root matches, but uniqueness was NOT checked: the scan of the operator's history (${eq.scanned} signatures) did not find this transaction. Retry later, or use an RPC that serves full history.` },
+      chain,
+    );
+  }
   if (!st.pass) {
     const list = st.result.anchors.map((a) => `${a.signature} slot ${a.slot ?? "?"} root ${a.root} count ${a.count}`).join("; ");
     const why = st.winner ? `the first finalized anchor is ${st.winner.signature}` : "two different anchors share the lowest slot, so none wins";
@@ -197,7 +206,8 @@ interface Chain {
 function standingWarning(st: AnchorStanding): string | null {
   if (st.standing === "duplicate") return `the operator anchored this kind/id ${st.count} times with the same root and count (duplicate); the first finalized is ${st.first?.signature ?? "unknown"}`;
   if (st.standing === "equivocation_first") {
-    return `EQUIVOCATION: the operator also anchored this kind/id with a different root or count (${st.others.map((a) => `${a.signature} root ${a.root} count ${a.count}`).join("; ")}). This anchor is the first finalized one, so it is the one that counts; the later ones are void.`;
+    const which = st.isWinner ? "This anchor is the first finalized one" : `This anchor has the same root and count as the first finalized one (${st.winner.signature})`;
+    return `EQUIVOCATION: the operator also anchored this kind/id with a different root or count (${st.others.filter((a) => a.root !== st.winner.root || a.count !== st.winner.count).map((a) => `${a.signature} root ${a.root} count ${a.count}`).join("; ")}). ${which}, so it is the result that counts; the different later ones are void.`;
   }
   return null;
 }

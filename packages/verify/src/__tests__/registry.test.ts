@@ -289,26 +289,38 @@ describe("anchorStanding (first finalized operator memo wins)", () => {
   const sighting = (n: number, slot: number | null, root = ROOT) => ({ signature: sig(n), slot, blockTime: null, memo: m("cup-1", root), root, count: 3 });
   const scan = (anchors: ReturnType<typeof sighting>[]) => ({ ok: true as const, status: "none" as const, winner: null, anchors, scanned: 9 });
 
-  it("the anchor in hand counts: in hand + a different one in history is equivocation, never 'unique'", () => {
-    const st = anchorStanding({ ...scan([sighting(2, 5, ROOT_B)]), status: "unique", winner: sighting(2, 5, ROOT_B) }, sighting(1, 10));
+  it("the checked anchor missing from a completed scan: not checked, never added (no pass, no verdict)", () => {
+    const st = anchorStanding(scan([sighting(2, 5, ROOT_B)]), sighting(1, 10));
+    expect(st).toMatchObject({ standing: "not_in_scan", pass: null });
+    expect(st.result.anchors.map((a) => a.signature)).toEqual([sig(2)]); // not added
+    expect(anchorStanding(scan([]), sighting(1, 10))).toMatchObject({ standing: "not_in_scan", pass: null });
+  });
+  it("a caller-supplied slot never decides the winner: the scan's own sighting is used", () => {
+    // The caller claims slot 1 (earlier than the other anchor); the scan read it at slot 50. The scan's slot counts.
+    const st = anchorStanding(scan([sighting(2, 5, ROOT_B), sighting(1, 50)]), sighting(1, 1));
     expect(st).toMatchObject({ standing: "not_first", pass: false, winner: { signature: sig(2) } });
-    expect(st.result.status).toBe("equivocation");
-    expect(st.result.anchors.map((a) => a.signature)).toEqual([sig(2), sig(1)]);
   });
-  it("an empty scan plus the anchor in hand is the sole anchor", () => {
-    expect(anchorStanding(scan([]), sighting(1, 10))).toMatchObject({ standing: "sole", pass: true, result: { status: "unique" } });
+  it("the scan read other content for the checked signature: not checked", () => {
+    expect(anchorStanding(scan([sighting(1, 10, ROOT_B)]), sighting(1, 10))).toMatchObject({ standing: "not_in_scan" });
   });
-  it("the checked anchor is the first finalized: pass, flagged as equivocation_first", () => {
-    const st = anchorStanding(scan([sighting(2, 30, ROOT_B)]), sighting(1, 10));
-    expect(st).toMatchObject({ standing: "equivocation_first", pass: true, others: [{ signature: sig(2) }] });
+  it("the only anchor: sole", () => {
+    expect(anchorStanding(scan([sighting(1, 10)]), sighting(1, 10))).toMatchObject({ standing: "sole", pass: true, result: { status: "unique" } });
+  });
+  it("the checked anchor is the first finalized of different anchors: pass, equivocation_first, isWinner", () => {
+    const st = anchorStanding(scan([sighting(1, 10), sighting(2, 30, ROOT_B)]), sighting(1, 10));
+    expect(st).toMatchObject({ standing: "equivocation_first", pass: true, isWinner: true, others: [{ signature: sig(2) }] });
+  });
+  it("a same-root duplicate of the winner is not voided by a later different anchor (root+count, not signature)", () => {
+    const st = anchorStanding(scan([sighting(1, 10), sighting(3, 20), sighting(2, 30, ROOT_B)]), sighting(3, 20));
+    expect(st).toMatchObject({ standing: "equivocation_first", pass: true, isWinner: false, winner: { signature: sig(1) } });
+  });
+  it("a later anchor with a different root: not_first, fail", () => {
+    expect(anchorStanding(scan([sighting(2, 5, ROOT_B), sighting(1, 10)]), sighting(1, 10))).toMatchObject({ standing: "not_first", pass: false, winner: { signature: sig(2) } });
   });
   it("no winner (two different memos in the lowest slot): fail", () => {
-    expect(anchorStanding(scan([sighting(2, 10, ROOT_B)]), sighting(1, 10))).toMatchObject({ standing: "not_first", pass: false, winner: null });
+    expect(anchorStanding(scan([sighting(2, 10, ROOT_B), sighting(1, 10)]), sighting(1, 10))).toMatchObject({ standing: "not_first", pass: false, winner: null });
   });
   it("same root and count elsewhere: duplicate, pass with the first named", () => {
-    expect(anchorStanding(scan([sighting(2, 5)]), sighting(1, 10))).toMatchObject({ standing: "duplicate", pass: true, first: { signature: sig(2) }, count: 2 });
-  });
-  it("does not double-count the checked anchor when the scan already found it", () => {
-    expect(anchorStanding(scan([sighting(1, 10)]), sighting(1, 10))).toMatchObject({ standing: "sole", result: { anchors: [{ signature: sig(1) }] } });
+    expect(anchorStanding(scan([sighting(2, 5), sighting(1, 10)]), sighting(1, 10))).toMatchObject({ standing: "duplicate", pass: true, first: { signature: sig(2) }, count: 2 });
   });
 });

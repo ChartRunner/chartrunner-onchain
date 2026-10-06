@@ -154,30 +154,38 @@ export function classifyAnchors(found: AnchorSighting[]): { status: Equivocation
 
 /**
  * Where the transaction being verified stands under "first finalized operator memo per (kind, id) wins" (SPEC 2.5).
- * The checked anchor is added to the scan's anchors first (deduplicated by signature) and the status and winner are
- * recomputed, so an anchor in hand plus one found in history is never "unique" or "none".
+ * The checked anchor must be among the anchors a COMPLETED scan found, re-read by the scan itself (its slot then comes
+ * from the scan's own finalized read, never from the caller). If it is not there, the scan says nothing about it.
  *
+ * - `not_in_scan`: the scan did not find the checked transaction (RPC lag, an RPC that omits it, or a caller-supplied
+ *   slot or memo that the chain does not back). Uniqueness NOT checked: never a pass, never added to the anchors.
  * - `sole`: the only anchor. Pass.
- * - `duplicate`: other anchors with the same root and count. Pass, with a warning (the data verified is identical).
- * - `equivocation_first`: other anchors with different roots or counts, and the checked one is the first finalized.
- *   Pass, with a loud warning: the operator equivocated, and this is the anchor that counts.
- * - `not_first`: other anchors with different roots or counts and the checked one is not the winner (or there is no
- *   winner because two different memos share the lowest slot). Fail: this anchor is void.
+ * - `duplicate`: other anchors, all with the same root and count. Pass, with a warning (the data verified is identical).
+ * - `equivocation_first`: anchors with different roots or counts exist, and the checked one commits to the same root and
+ *   count as the first finalized anchor (it is that anchor, or a duplicate of it). Pass, with a loud warning.
+ * - `not_first`: anchors with different roots or counts exist, and the checked one does not match the first finalized
+ *   anchor (or there is no winner because two different memos share the lowest slot). Fail: this anchor is void.
  */
 export type AnchorStanding =
+  | { standing: "not_in_scan"; pass: null }
   | { standing: "sole"; pass: true }
   | { standing: "duplicate"; pass: true; first: AnchorSighting | null; count: number }
-  | { standing: "equivocation_first"; pass: true; others: AnchorSighting[] }
+  | { standing: "equivocation_first"; pass: true; isWinner: boolean; winner: AnchorSighting; others: AnchorSighting[] }
   | { standing: "not_first"; pass: false; winner: AnchorSighting | null; others: AnchorSighting[] };
 
 export function anchorStanding(result: Extract<EquivocationResult, { ok: true }>, checked: AnchorSighting): AnchorStanding & { result: Extract<EquivocationResult, { ok: true }> } {
-  const merged = result.anchors.some((a) => a.signature === checked.signature) ? result.anchors : [...result.anchors, checked];
-  const c = classifyAnchors(merged);
+  const found = result.anchors.find((a) => a.signature === checked.signature);
+  // Not seen by the scan, or seen with other content than the caller verified: the scan cannot vouch for it.
+  if (!found || found.root !== checked.root || found.count !== checked.count) return { standing: "not_in_scan", pass: null, result };
+  const c = classifyAnchors(result.anchors);
   const updated = { ...result, ...c };
-  const others = c.anchors.filter((a) => a.signature !== checked.signature);
+  const others = c.anchors.filter((a) => a.signature !== found.signature);
   if (c.status === "unique") return { standing: "sole", pass: true, result: updated };
   if (c.status === "duplicate") return { standing: "duplicate", pass: true, first: c.winner, count: c.anchors.length, result: updated };
-  if (c.winner && c.winner.signature === checked.signature) return { standing: "equivocation_first", pass: true, others, result: updated };
+  // Equivocation: what counts is the first finalized anchor's root and count, not its signature.
+  if (c.winner && c.winner.root === found.root && c.winner.count === found.count) {
+    return { standing: "equivocation_first", pass: true, isWinner: c.winner.signature === found.signature, winner: c.winner, others, result: updated };
+  }
   return { standing: "not_first", pass: false, winner: c.winner, others, result: updated };
 }
 

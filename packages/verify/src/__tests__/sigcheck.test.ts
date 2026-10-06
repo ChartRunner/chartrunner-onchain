@@ -173,8 +173,14 @@ describe("CLI --verify-signature and --check-equivocation", async () => {
     expect(await s.run("--check-equivocation")).toBe(0);
     expect(s.err.join("\n")).toMatch(/WARNING {3}EQUIVOCATION: .*This anchor is the first finalized one/);
   });
-  it("the scan missing the anchor in hand still counts it (no 'none'), and --max-signatures is passed through", async () => {
+  it("a completed scan that did not find the checked transaction: exit 2 (uniqueness NOT checked), never 0", async () => {
     const s = await setup([{ memo: formatMemo({ kind: "cup", id: "c2", root, count }), slot: 60 }, { memo: formatMemo({ kind: "cup", id: "c3", root, count }), slot: 61 }]);
+    expect(await s.run("--check-equivocation")).toBe(2);
+    expect(s.err.join("\n")).toMatch(/equivocation_unchecked: The root matches, but uniqueness was NOT checked: the scan of the operator's history \(2 signatures\) did not find this transaction/);
+  });
+  it("--max-signatures is passed through", async () => {
+    const memo = formatMemo({ kind: "cup", id: "c1", root, count });
+    const s = await setup([{ memo, slot: 50, self: true }, { memo: formatMemo({ kind: "cup", id: "c3", root, count }), slot: 61 }]);
     expect(await s.run("--check-equivocation")).toBe(0);
     expect(s.out.join("\n")).toMatch(/only operator anchor for this kind\/id/);
     expect(await s.run("--check-equivocation", "--max-signatures", "1")).toBe(2);
@@ -184,6 +190,12 @@ describe("CLI --verify-signature and --check-equivocation", async () => {
     const s = await setup([]);
     expect(await s.run("--check-equivocation", "--max-signatures", "0")).toBe(2);
     expect(await s.run("--max-signatures", "10")).toBe(2);
+  });
+  it("a same-root duplicate of the first anchor passes even when a later anchor equivocates", async () => {
+    const memo = formatMemo({ kind: "cup", id: "c1", root, count });
+    const s = await setup([{ memo, slot: 50, self: true }, { memo, slot: 40 }, { memo: formatMemo({ kind: "cup", id: "c1", root: "f".repeat(64), count }), slot: 60 }]);
+    expect(await s.run("--check-equivocation")).toBe(0);
+    expect(s.err.join("\n")).toMatch(/WARNING {3}EQUIVOCATION: .*same root and count as the first finalized one/);
   });
   it("duplicate: exit 0 with a warning naming the first finalized anchor", async () => {
     const memo = formatMemo({ kind: "cup", id: "c1", root, count });
