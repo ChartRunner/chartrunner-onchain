@@ -1,0 +1,37 @@
+{
+  "cupId": "cup-vector-1",
+  "results": {
+    "standings": [
+      {
+        "rank": 1,
+        "userId": "user-0001",
+        "name": "Alice",
+        "equity": "11250.500000",
+        "pnlPct": "12.5050",
+        "trades": 14,
+        "disqualified": false,
+        "fillsHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "rank": 2,
+        "userId": "user-0002",
+        "name": "Bob",
+        "equity": "10100.000000",
+        "pnlPct": "1.0000",
+        "trades": 3,
+        "disqualified": false,
+        "fillsHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "rank": 3,
+        "userId": "user-0003",
+        "name": "Cy",
+        "equity": "5000.000000",
+        "pnlPct": "-50.0000",
+        "trades": 40,
+        "disqualified": true,
+        "fillsHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ]
+  }
+}

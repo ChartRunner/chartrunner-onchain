@@ -1,0 +1,1197 @@
+{
+  "format": "chartrunner-anchor-test-vectors",
+  "formatVersion": 1,
+  "spec": "SPEC.md (chartrunner:v1)",
+  "note": "Frozen. Values are produced by scripts/gen-vectors.mjs from the spec with node:crypto, independently of @chartrunner/verify. Never edit a value; only append new vectors.",
+  "memoProgramId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+  "kinds": [
+    {
+      "kind": "freeplay",
+      "signer": "operator",
+      "status": "active",
+      "count": "any"
+    },
+    {
+      "kind": "daily",
+      "signer": "operator",
+      "status": "active",
+      "count": "any"
+    },
+    {
+      "kind": "cup",
+      "signer": "operator",
+      "status": "active",
+      "count": "any"
+    },
+    {
+      "kind": "xp",
+      "signer": "operator",
+      "status": "reserved",
+      "count": "any"
+    },
+    {
+      "kind": "map",
+      "signer": "user",
+      "status": "planned",
+      "count": "one"
+    },
+    {
+      "kind": "strategy",
+      "signer": "user",
+      "status": "planned",
+      "count": "one"
+    },
+    {
+      "kind": "bot",
+      "signer": "user",
+      "status": "planned",
+      "count": "one"
+    },
+    {
+      "kind": "backtest",
+      "signer": "user",
+      "status": "planned",
+      "count": "one"
+    }
+  ],
+  "pseudonyms": [
+    {
+      "fn": "userHash",
+      "input": "user-0001",
+      "output": "cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10"
+    },
+    {
+      "fn": "handleHash",
+      "input": "Alice",
+      "output": "f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee"
+    },
+    {
+      "fn": "handleHash",
+      "input": "ALICE",
+      "output": "f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee"
+    },
+    {
+      "fn": "runHash",
+      "input": "run-0001",
+      "output": "195f3dff46af445a2a0d79cab0fd6d66defdd244cf0e612fb8a538e1bca26bb1"
+    }
+  ],
+  "canonical": [
+    {
+      "name": "key order and no whitespace",
+      "row": {
+        "s": 1,
+        "id": "a"
+      },
+      "canonical": "{\"id\":\"a\",\"s\":1}",
+      "leafHash": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5"
+    },
+    {
+      "name": "all value types",
+      "row": {
+        "str": "x",
+        "int": -42,
+        "zero": 0,
+        "t": true,
+        "f": false,
+        "n": null
+      },
+      "canonical": "{\"f\":false,\"int\":-42,\"n\":null,\"str\":\"x\",\"t\":true,\"zero\":0}",
+      "leafHash": "2ac55619bee000c53af6ba2142d95edfd3bd36dfa30810a289fc81a9418824cb"
+    },
+    {
+      "name": "largest safe integers",
+      "row": {
+        "max": 9007199254740991,
+        "min": -9007199254740991
+      },
+      "canonical": "{\"max\":9007199254740991,\"min\":-9007199254740991}",
+      "leafHash": "35457a81ba53f3cd44c686b87486c08def7a8918521cffea708e8f9dd3f2d315"
+    },
+    {
+      "name": "string escaping",
+      "row": {
+        "q": "say \"hi\"",
+        "bs": "a\\b",
+        "nl": "line\nbreak",
+        "tab": "\t",
+        "nul": "\u0000",
+        "bell": "\u0007",
+        "del": ""
+      },
+      "canonical": "{\"bell\":\"\\u0007\",\"bs\":\"a\\\\b\",\"del\":\"\",\"nl\":\"line\\nbreak\",\"nul\":\"\\u0000\",\"q\":\"say \\\"hi\\\"\",\"tab\":\"\\t\"}",
+      "leafHash": "101f66977b8a90affddd1c1c43abf4a62ea4ad631b91ab3c1ea287a1f5470b29"
+    },
+    {
+      "name": "non-ASCII stays literal UTF-8",
+      "row": {
+        "name": "Zoë",
+        "city": "東京",
+        "emoji": "🚀",
+        "sep": " "
+      },
+      "canonical": "{\"city\":\"東京\",\"emoji\":\"🚀\",\"name\":\"Zoë\",\"sep\":\" \"}",
+      "leafHash": "2f80897fc0a215fffb47f3cfdbe9a94689bf0c6c4f9920aa5304be576ac42c30"
+    },
+    {
+      "name": "keys sort by UTF-16 code unit, not code point",
+      "row": {
+        "～": 1,
+        "😀": 2,
+        "é": 3,
+        "a": 4,
+        "B": 5,
+        "": 6
+      },
+      "canonical": "{\"\":6,\"B\":5,\"a\":4,\"é\":3,\"😀\":2,\"～\":1}",
+      "leafHash": "ea664f9ce6828bdc10c528fd941766d9ca754c25d3a9f93726442b8e2c47c50d"
+    },
+    {
+      "name": "empty object",
+      "row": {},
+      "canonical": "{}",
+      "leafHash": "28a3a18f6cd6406b086e9ffda1f9b8a13dbcf44b0f3f32cb9031a11fd053acf9"
+    }
+  ],
+  "invalidRows": [
+    {
+      "name": "float",
+      "row": {
+        "s": 1.5
+      }
+    },
+    {
+      "name": "unsafe integer",
+      "row": {
+        "s": 9007199254740992
+      }
+    },
+    {
+      "name": "nested object",
+      "row": {
+        "o": {
+          "a": 1
+        }
+      }
+    },
+    {
+      "name": "array",
+      "row": {
+        "a": [
+          1,
+          2
+        ]
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "left": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5",
+      "right": "d1641b01a52a717dbea038563bd59b8a568c2e21cea20794706d4ced9877a95b",
+      "node": "fc12c52058e95d3e1a498f09dab9f5d30bcecbc746b6643526f2eaefae844699"
+    }
+  ],
+  "trees": [
+    {
+      "name": "one row: root is the leaf hash",
+      "kind": "cup",
+      "id": "vector-1",
+      "rows": [
+        {
+          "id": "a",
+          "s": 1
+        }
+      ],
+      "sortedLeaves": [
+        {
+          "canonical": "{\"id\":\"a\",\"s\":1}",
+          "hash": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5"
+        }
+      ],
+      "root": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5",
+      "count": 1,
+      "memo": "chartrunner:v1:cup:vector-1:fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5:1",
+      "proofs": [
+        {
+          "index": 0,
+          "leaf": "{\"id\":\"a\",\"s\":1}",
+          "proof": []
+        }
+      ]
+    },
+    {
+      "name": "two rows",
+      "kind": "cup",
+      "id": "vector-2",
+      "rows": [
+        {
+          "id": "a",
+          "s": 1
+        },
+        {
+          "id": "b",
+          "s": 2
+        }
+      ],
+      "sortedLeaves": [
+        {
+          "canonical": "{\"id\":\"b\",\"s\":2}",
+          "hash": "d1641b01a52a717dbea038563bd59b8a568c2e21cea20794706d4ced9877a95b"
+        },
+        {
+          "canonical": "{\"id\":\"a\",\"s\":1}",
+          "hash": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5"
+        }
+      ],
+      "root": "a17e226e3b86e457dd861c5cf0062480fa31445e9576a60327f1657120806579",
+      "count": 2,
+      "memo": "chartrunner:v1:cup:vector-2:a17e226e3b86e457dd861c5cf0062480fa31445e9576a60327f1657120806579:2",
+      "proofs": [
+        {
+          "index": 0,
+          "leaf": "{\"id\":\"b\",\"s\":2}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "leaf": "{\"id\":\"a\",\"s\":1}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "d1641b01a52a717dbea038563bd59b8a568c2e21cea20794706d4ced9877a95b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "three rows: last node promoted",
+      "kind": "cup",
+      "id": "vector-3",
+      "rows": [
+        {
+          "id": "c",
+          "s": 3
+        },
+        {
+          "id": "a",
+          "s": 1
+        },
+        {
+          "id": "b",
+          "s": 2
+        }
+      ],
+      "sortedLeaves": [
+        {
+          "canonical": "{\"id\":\"b\",\"s\":2}",
+          "hash": "d1641b01a52a717dbea038563bd59b8a568c2e21cea20794706d4ced9877a95b"
+        },
+        {
+          "canonical": "{\"id\":\"c\",\"s\":3}",
+          "hash": "f0c0498e9ab8c5c6c93d73de2151498561a0bec34bb7f4392788aa82415a001c"
+        },
+        {
+          "canonical": "{\"id\":\"a\",\"s\":1}",
+          "hash": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5"
+        }
+      ],
+      "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+      "count": 3,
+      "memo": "chartrunner:v1:cup:vector-3:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3",
+      "proofs": [
+        {
+          "index": 0,
+          "leaf": "{\"id\":\"b\",\"s\":2}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "f0c0498e9ab8c5c6c93d73de2151498561a0bec34bb7f4392788aa82415a001c"
+            },
+            {
+              "side": "R",
+              "hash": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "leaf": "{\"id\":\"c\",\"s\":3}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "d1641b01a52a717dbea038563bd59b8a568c2e21cea20794706d4ced9877a95b"
+            },
+            {
+              "side": "R",
+              "hash": "fb94af131c58f06a58853b517f9f76773fb42bc7a188d737d06c5ac8cbe549f5"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "leaf": "{\"id\":\"a\",\"s\":1}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "46cde335864d5d861c10049a2218bc448980f4d0ca7c3579de383eac84f67471"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "four rows: full tree",
+      "kind": "cup",
+      "id": "vector-4",
+      "rows": [
+        {
+          "i": 0,
+          "name": "p0",
+          "ok": true,
+          "none": null
+        },
+        {
+          "i": 1,
+          "name": "p1",
+          "ok": false,
+          "none": null
+        },
+        {
+          "i": 2,
+          "name": "p2",
+          "ok": true,
+          "none": null
+        },
+        {
+          "i": 3,
+          "name": "p3",
+          "ok": false,
+          "none": null
+        }
+      ],
+      "sortedLeaves": [
+        {
+          "canonical": "{\"i\":2,\"name\":\"p2\",\"none\":null,\"ok\":true}",
+          "hash": "55f3f502a44a3ab8feaac5c155ff30fcebf2afaa818774d74ef5019699e9a0a7"
+        },
+        {
+          "canonical": "{\"i\":1,\"name\":\"p1\",\"none\":null,\"ok\":false}",
+          "hash": "5f86ecd4613c1e43e685dd25d5f290ef426dab1ee0142d38afd0d878efd8b3c6"
+        },
+        {
+          "canonical": "{\"i\":3,\"name\":\"p3\",\"none\":null,\"ok\":false}",
+          "hash": "923331153b502fc0728bfaaf1d0594fb517de0b43384f02426e5b5b505cde3a9"
+        },
+        {
+          "canonical": "{\"i\":0,\"name\":\"p0\",\"none\":null,\"ok\":true}",
+          "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+        }
+      ],
+      "root": "cfe8b77f2aa1260bbd9d96e5840e50c7fdb9fac2b74797179c3ccf0245d39aac",
+      "count": 4,
+      "memo": "chartrunner:v1:cup:vector-4:cfe8b77f2aa1260bbd9d96e5840e50c7fdb9fac2b74797179c3ccf0245d39aac:4",
+      "proofs": [
+        {
+          "index": 0,
+          "leaf": "{\"i\":2,\"name\":\"p2\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "5f86ecd4613c1e43e685dd25d5f290ef426dab1ee0142d38afd0d878efd8b3c6"
+            },
+            {
+              "side": "R",
+              "hash": "441882a2c3a2c3f346f76689b74bd682185280e118868ec9f3f6a9ff706dd2fc"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "leaf": "{\"i\":1,\"name\":\"p1\",\"none\":null,\"ok\":false}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "55f3f502a44a3ab8feaac5c155ff30fcebf2afaa818774d74ef5019699e9a0a7"
+            },
+            {
+              "side": "R",
+              "hash": "441882a2c3a2c3f346f76689b74bd682185280e118868ec9f3f6a9ff706dd2fc"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "leaf": "{\"i\":3,\"name\":\"p3\",\"none\":null,\"ok\":false}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+            },
+            {
+              "side": "L",
+              "hash": "d903568fdcca686c8c14a7ba81a99d1b7080203dea47ac74715a71b45c90db83"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "leaf": "{\"i\":0,\"name\":\"p0\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "923331153b502fc0728bfaaf1d0594fb517de0b43384f02426e5b5b505cde3a9"
+            },
+            {
+              "side": "L",
+              "hash": "d903568fdcca686c8c14a7ba81a99d1b7080203dea47ac74715a71b45c90db83"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "five rows: promotion across two levels",
+      "kind": "cup",
+      "id": "vector-5",
+      "rows": [
+        {
+          "i": 0,
+          "name": "p0",
+          "ok": true,
+          "none": null
+        },
+        {
+          "i": 1,
+          "name": "p1",
+          "ok": false,
+          "none": null
+        },
+        {
+          "i": 2,
+          "name": "p2",
+          "ok": true,
+          "none": null
+        },
+        {
+          "i": 3,
+          "name": "p3",
+          "ok": false,
+          "none": null
+        },
+        {
+          "i": 4,
+          "name": "p4",
+          "ok": true,
+          "none": null
+        }
+      ],
+      "sortedLeaves": [
+        {
+          "canonical": "{\"i\":2,\"name\":\"p2\",\"none\":null,\"ok\":true}",
+          "hash": "55f3f502a44a3ab8feaac5c155ff30fcebf2afaa818774d74ef5019699e9a0a7"
+        },
+        {
+          "canonical": "{\"i\":1,\"name\":\"p1\",\"none\":null,\"ok\":false}",
+          "hash": "5f86ecd4613c1e43e685dd25d5f290ef426dab1ee0142d38afd0d878efd8b3c6"
+        },
+        {
+          "canonical": "{\"i\":4,\"name\":\"p4\",\"none\":null,\"ok\":true}",
+          "hash": "66db45a68656d52d40ad038d5c50ea84b6b68b9df9639874ecd4e2a10f90cf25"
+        },
+        {
+          "canonical": "{\"i\":3,\"name\":\"p3\",\"none\":null,\"ok\":false}",
+          "hash": "923331153b502fc0728bfaaf1d0594fb517de0b43384f02426e5b5b505cde3a9"
+        },
+        {
+          "canonical": "{\"i\":0,\"name\":\"p0\",\"none\":null,\"ok\":true}",
+          "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+        }
+      ],
+      "root": "da8a5bd4114ae3f7c48948021d5ecf5c203d4eb8b0117f28abea19623180da74",
+      "count": 5,
+      "memo": "chartrunner:v1:cup:vector-5:da8a5bd4114ae3f7c48948021d5ecf5c203d4eb8b0117f28abea19623180da74:5",
+      "proofs": [
+        {
+          "index": 0,
+          "leaf": "{\"i\":2,\"name\":\"p2\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "5f86ecd4613c1e43e685dd25d5f290ef426dab1ee0142d38afd0d878efd8b3c6"
+            },
+            {
+              "side": "R",
+              "hash": "52b38b220b2608fe92703ec62e20150b2ffed51090e121c0fa7dce511d38aeb4"
+            },
+            {
+              "side": "R",
+              "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "leaf": "{\"i\":1,\"name\":\"p1\",\"none\":null,\"ok\":false}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "55f3f502a44a3ab8feaac5c155ff30fcebf2afaa818774d74ef5019699e9a0a7"
+            },
+            {
+              "side": "R",
+              "hash": "52b38b220b2608fe92703ec62e20150b2ffed51090e121c0fa7dce511d38aeb4"
+            },
+            {
+              "side": "R",
+              "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "leaf": "{\"i\":4,\"name\":\"p4\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "923331153b502fc0728bfaaf1d0594fb517de0b43384f02426e5b5b505cde3a9"
+            },
+            {
+              "side": "L",
+              "hash": "d903568fdcca686c8c14a7ba81a99d1b7080203dea47ac74715a71b45c90db83"
+            },
+            {
+              "side": "R",
+              "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "leaf": "{\"i\":3,\"name\":\"p3\",\"none\":null,\"ok\":false}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "66db45a68656d52d40ad038d5c50ea84b6b68b9df9639874ecd4e2a10f90cf25"
+            },
+            {
+              "side": "L",
+              "hash": "d903568fdcca686c8c14a7ba81a99d1b7080203dea47ac74715a71b45c90db83"
+            },
+            {
+              "side": "R",
+              "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "leaf": "{\"i\":0,\"name\":\"p0\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "b2cbe592c2079f3116586d177dc78b0924f5a29a5e9e5528c70d46f569bebf91"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "seven rows",
+      "kind": "cup",
+      "id": "vector-6",
+      "rows": [
+        {
+          "i": 0,
+          "name": "p0",
+          "ok": true,
+          "none": null
+        },
+        {
+          "i": 1,
+          "name": "p1",
+          "ok": false,
+          "none": null
+        },
+        {
+          "i": 2,
+          "name": "p2",
+          "ok": true,
+          "none": null
+        },
+        {
+          "i": 3,
+          "name": "p3",
+          "ok": false,
+          "none": null
+        },
+        {
+          "i": 4,
+          "name": "p4",
+          "ok": true,
+          "none": null
+        },
+        {
+          "i": 5,
+          "name": "p5",
+          "ok": false,
+          "none": null
+        },
+        {
+          "i": 6,
+          "name": "p6",
+          "ok": true,
+          "none": null
+        }
+      ],
+      "sortedLeaves": [
+        {
+          "canonical": "{\"i\":5,\"name\":\"p5\",\"none\":null,\"ok\":false}",
+          "hash": "39738f48b33b68ee41e23fa16fe5a7084a4a5561c7f8afbe6930986495105a24"
+        },
+        {
+          "canonical": "{\"i\":6,\"name\":\"p6\",\"none\":null,\"ok\":true}",
+          "hash": "4df20ed03b6f36de916ef4e47e6721cc286ed73a6ea3187792d7c9ef7244a8dd"
+        },
+        {
+          "canonical": "{\"i\":2,\"name\":\"p2\",\"none\":null,\"ok\":true}",
+          "hash": "55f3f502a44a3ab8feaac5c155ff30fcebf2afaa818774d74ef5019699e9a0a7"
+        },
+        {
+          "canonical": "{\"i\":1,\"name\":\"p1\",\"none\":null,\"ok\":false}",
+          "hash": "5f86ecd4613c1e43e685dd25d5f290ef426dab1ee0142d38afd0d878efd8b3c6"
+        },
+        {
+          "canonical": "{\"i\":4,\"name\":\"p4\",\"none\":null,\"ok\":true}",
+          "hash": "66db45a68656d52d40ad038d5c50ea84b6b68b9df9639874ecd4e2a10f90cf25"
+        },
+        {
+          "canonical": "{\"i\":3,\"name\":\"p3\",\"none\":null,\"ok\":false}",
+          "hash": "923331153b502fc0728bfaaf1d0594fb517de0b43384f02426e5b5b505cde3a9"
+        },
+        {
+          "canonical": "{\"i\":0,\"name\":\"p0\",\"none\":null,\"ok\":true}",
+          "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+        }
+      ],
+      "root": "05998efb2c2b43387cc876f94429b7ebb6847de24921060638f32288ba52d106",
+      "count": 7,
+      "memo": "chartrunner:v1:cup:vector-6:05998efb2c2b43387cc876f94429b7ebb6847de24921060638f32288ba52d106:7",
+      "proofs": [
+        {
+          "index": 0,
+          "leaf": "{\"i\":5,\"name\":\"p5\",\"none\":null,\"ok\":false}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "4df20ed03b6f36de916ef4e47e6721cc286ed73a6ea3187792d7c9ef7244a8dd"
+            },
+            {
+              "side": "R",
+              "hash": "d903568fdcca686c8c14a7ba81a99d1b7080203dea47ac74715a71b45c90db83"
+            },
+            {
+              "side": "R",
+              "hash": "cec2ff9743ef14b602717b7d421649773eea2d4989a35846d960562a293e90ab"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "leaf": "{\"i\":6,\"name\":\"p6\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "39738f48b33b68ee41e23fa16fe5a7084a4a5561c7f8afbe6930986495105a24"
+            },
+            {
+              "side": "R",
+              "hash": "d903568fdcca686c8c14a7ba81a99d1b7080203dea47ac74715a71b45c90db83"
+            },
+            {
+              "side": "R",
+              "hash": "cec2ff9743ef14b602717b7d421649773eea2d4989a35846d960562a293e90ab"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "leaf": "{\"i\":2,\"name\":\"p2\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "5f86ecd4613c1e43e685dd25d5f290ef426dab1ee0142d38afd0d878efd8b3c6"
+            },
+            {
+              "side": "L",
+              "hash": "7a27b88b14dd96618c1f795cabc9f8e318875d36328aa379c5622e5590d8c1fc"
+            },
+            {
+              "side": "R",
+              "hash": "cec2ff9743ef14b602717b7d421649773eea2d4989a35846d960562a293e90ab"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "leaf": "{\"i\":1,\"name\":\"p1\",\"none\":null,\"ok\":false}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "55f3f502a44a3ab8feaac5c155ff30fcebf2afaa818774d74ef5019699e9a0a7"
+            },
+            {
+              "side": "L",
+              "hash": "7a27b88b14dd96618c1f795cabc9f8e318875d36328aa379c5622e5590d8c1fc"
+            },
+            {
+              "side": "R",
+              "hash": "cec2ff9743ef14b602717b7d421649773eea2d4989a35846d960562a293e90ab"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "leaf": "{\"i\":4,\"name\":\"p4\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "R",
+              "hash": "923331153b502fc0728bfaaf1d0594fb517de0b43384f02426e5b5b505cde3a9"
+            },
+            {
+              "side": "R",
+              "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+            },
+            {
+              "side": "L",
+              "hash": "b1f0a0d9d0824ae55620ab3545be3196d2f2ef1a7cab9b64e6ee0ebab7207b4d"
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "leaf": "{\"i\":3,\"name\":\"p3\",\"none\":null,\"ok\":false}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "66db45a68656d52d40ad038d5c50ea84b6b68b9df9639874ecd4e2a10f90cf25"
+            },
+            {
+              "side": "R",
+              "hash": "c348e9ea28d6761418aaee6416b6d94410ead0579127186e54a73a94c62b167c"
+            },
+            {
+              "side": "L",
+              "hash": "b1f0a0d9d0824ae55620ab3545be3196d2f2ef1a7cab9b64e6ee0ebab7207b4d"
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "leaf": "{\"i\":0,\"name\":\"p0\",\"none\":null,\"ok\":true}",
+          "proof": [
+            {
+              "side": "L",
+              "hash": "52b38b220b2608fe92703ec62e20150b2ffed51090e121c0fa7dce511d38aeb4"
+            },
+            {
+              "side": "L",
+              "hash": "b1f0a0d9d0824ae55620ab3545be3196d2f2ef1a7cab9b64e6ee0ebab7207b4d"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "duplicates": [
+    {
+      "name": "same row twice",
+      "rows": [
+        {
+          "id": "a",
+          "s": 1
+        },
+        {
+          "id": "a",
+          "s": 1
+        }
+      ]
+    },
+    {
+      "name": "same row with a different key order",
+      "rows": [
+        {
+          "id": "a",
+          "s": 1
+        },
+        {
+          "s": 1,
+          "id": "a"
+        }
+      ]
+    }
+  ],
+  "cup": {
+    "cupId": "cup-vector-1",
+    "standings": [
+      {
+        "rank": 1,
+        "userId": "user-0001",
+        "name": "Alice",
+        "equity": "11250.500000",
+        "pnlPct": "12.5050",
+        "trades": 14,
+        "disqualified": false,
+        "fillsHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "rank": 2,
+        "userId": "user-0002",
+        "name": "Bob",
+        "equity": "10100.000000",
+        "pnlPct": "1.0000",
+        "trades": 3,
+        "disqualified": false,
+        "fillsHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "rank": 3,
+        "userId": "user-0003",
+        "name": "Cy",
+        "equity": "5000.000000",
+        "pnlPct": "-50.0000",
+        "trades": 40,
+        "disqualified": true,
+        "fillsHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "leaves": [
+      {
+        "v": 1,
+        "k": "cup",
+        "id": "cup-vector-1",
+        "rank": 1,
+        "u": "cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10",
+        "h": "f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee",
+        "eq": "11250.500000",
+        "pct": "12.5050",
+        "tr": 14,
+        "dq": false,
+        "fh": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "v": 1,
+        "k": "cup",
+        "id": "cup-vector-1",
+        "rank": 2,
+        "u": "a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310",
+        "h": "9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65",
+        "eq": "10100.000000",
+        "pct": "1.0000",
+        "tr": 3,
+        "dq": false,
+        "fh": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "v": 1,
+        "k": "cup",
+        "id": "cup-vector-1",
+        "rank": 3,
+        "u": "ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6",
+        "h": "37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a",
+        "eq": "5000.000000",
+        "pct": "-50.0000",
+        "tr": 40,
+        "dq": true,
+        "fh": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "root": "78455195b53abbd802140deccde0f5f8f483781af0cb4ba9ef8359ba169280e3",
+    "count": 3,
+    "memo": "chartrunner:v1:cup:cup-vector-1:78455195b53abbd802140deccde0f5f8f483781af0cb4ba9ef8359ba169280e3:3"
+  },
+  "board": {
+    "kind": "daily",
+    "date": "2026-10-02",
+    "rows": [
+      {
+        "rank": 1,
+        "userId": "user-0001",
+        "handle": "Alice",
+        "runId": "run-0001",
+        "score": 90,
+        "distance": 20
+      },
+      {
+        "rank": 2,
+        "userId": "user-0002",
+        "handle": "bob",
+        "runId": "run-0002",
+        "score": 75,
+        "distance": 18
+      },
+      {
+        "rank": 2,
+        "userId": "user-0003",
+        "handle": "Cy",
+        "runId": "run-0003",
+        "score": 75,
+        "distance": 30
+      }
+    ],
+    "leaves": [
+      {
+        "v": 1,
+        "k": "daily",
+        "d": "2026-10-02",
+        "rank": 1,
+        "u": "cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10",
+        "h": "f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee",
+        "s": 90,
+        "dist": 20,
+        "r": "195f3dff46af445a2a0d79cab0fd6d66defdd244cf0e612fb8a538e1bca26bb1"
+      },
+      {
+        "v": 1,
+        "k": "daily",
+        "d": "2026-10-02",
+        "rank": 2,
+        "u": "a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310",
+        "h": "9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65",
+        "s": 75,
+        "dist": 18,
+        "r": "983efefbdcd1d681ed287bfff901d8ffd004ea20584523e15291448f533578cf"
+      },
+      {
+        "v": 1,
+        "k": "daily",
+        "d": "2026-10-02",
+        "rank": 2,
+        "u": "ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6",
+        "h": "37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a",
+        "s": 75,
+        "dist": 30,
+        "r": "91dd0bfdca9801aadcce0e7ad5d23e8f51c3c6c50b4f452115c1c38d1f5d28eb"
+      }
+    ],
+    "root": "c3821e8ea50485711771c6f20087bc51e9b94051f470518cd61c5732230c9a1c",
+    "count": 3,
+    "memo": "chartrunner:v1:daily:2026-10-02:c3821e8ea50485711771c6f20087bc51e9b94051f470518cd61c5732230c9a1c:3"
+  },
+  "memos": {
+    "valid": [
+      {
+        "text": "chartrunner:v1:cup:cup-2026.10:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3",
+        "fields": {
+          "kind": "cup",
+          "id": "cup-2026.10",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 3
+        }
+      },
+      {
+        "text": "chartrunner:v1:daily:2026-10-02:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1",
+        "fields": {
+          "kind": "daily",
+          "id": "2026-10-02",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 1
+        }
+      },
+      {
+        "text": "chartrunner:v1:freeplay:2026-10-02:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:999999999",
+        "fields": {
+          "kind": "freeplay",
+          "id": "2026-10-02",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 999999999
+        }
+      },
+      {
+        "text": "chartrunner:v1:xp:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:12",
+        "fields": {
+          "kind": "xp",
+          "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 12
+        }
+      },
+      {
+        "text": "chartrunner:v1:cup:A_b.c-9:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:42",
+        "fields": {
+          "kind": "cup",
+          "id": "A_b.c-9",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 42
+        }
+      },
+      {
+        "text": "chartrunner:v1:map:ent_01J9.x-y:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1",
+        "fields": {
+          "kind": "map",
+          "id": "ent_01J9.x-y",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 1
+        }
+      },
+      {
+        "text": "chartrunner:v1:strategy:s-1:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1",
+        "fields": {
+          "kind": "strategy",
+          "id": "s-1",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 1
+        }
+      },
+      {
+        "text": "chartrunner:v1:bot:b-1:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1",
+        "fields": {
+          "kind": "bot",
+          "id": "b-1",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 1
+        }
+      },
+      {
+        "text": "chartrunner:v1:backtest:bt-1:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1",
+        "fields": {
+          "kind": "backtest",
+          "id": "bt-1",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 1
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "name": "empty",
+        "text": ""
+      },
+      {
+        "name": "trailing space",
+        "text": "chartrunner:v1:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3 "
+      },
+      {
+        "name": "leading space",
+        "text": " chartrunner:v1:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "trailing newline",
+        "text": "chartrunner:v1:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3\n"
+      },
+      {
+        "name": "other version",
+        "text": "chartrunner:v2:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "unknown kind",
+        "text": "chartrunner:v1:nope:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "uppercase kind",
+        "text": "chartrunner:v1:CUP:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "uppercase root",
+        "text": "chartrunner:v1:cup:x:0E35F6C675E52D251F7E0B25C5FB5D8B728344EEA7F519F70FFC950651D95F92:3"
+      },
+      {
+        "name": "short root",
+        "text": "chartrunner:v1:cup:x:e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "zero count",
+        "text": "chartrunner:v1:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:0"
+      },
+      {
+        "name": "leading-zero count",
+        "text": "chartrunner:v1:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:03"
+      },
+      {
+        "name": "ten-digit count",
+        "text": "chartrunner:v1:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1000000000"
+      },
+      {
+        "name": "extra field",
+        "text": "chartrunner:v1:cup:x:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3:extra"
+      },
+      {
+        "name": "empty id",
+        "text": "chartrunner:v1:cup::0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "id too long",
+        "text": "chartrunner:v1:cup:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "id with a space",
+        "text": "chartrunner:v1:cup:a b:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "legacy cr1 memo",
+        "text": "cr1:map:Example:abababababababababababababababababababababababababababababababab"
+      },
+      {
+        "name": "user kind with count 2",
+        "text": "chartrunner:v1:map:e1:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:2"
+      },
+      {
+        "name": "user kind with a free-text name as id",
+        "text": "chartrunner:v1:map:My Map:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1"
+      }
+    ]
+  },
+  "legacyCr1": {
+    "valid": [
+      {
+        "text": "cr1:map:First map:abababababababababababababababababababababababababababababababab",
+        "fields": {
+          "version": "cr1",
+          "kind": "map",
+          "name": "First map",
+          "contentHash": "abababababababababababababababababababababababababababababababab"
+        }
+      },
+      {
+        "text": "cr1:map:Map 🗺:abababababababababababababababababababababababababababababababab",
+        "fields": {
+          "version": "cr1",
+          "kind": "map",
+          "name": "Map 🗺",
+          "contentHash": "abababababababababababababababababababababababababababababababab"
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "name": "unknown legacy kind",
+        "text": "cr1:strategy:Name:abababababababababababababababababababababababababababababababab"
+      },
+      {
+        "name": "empty name",
+        "text": "cr1:map::abababababababababababababababababababababababababababababababab"
+      },
+      {
+        "name": "name over 64 UTF-8 bytes",
+        "text": "cr1:map:ééééééééééééééééééééééééééééééééé:abababababababababababababababababababababababababababababababab"
+      },
+      {
+        "name": "colon in name",
+        "text": "cr1:map:a:b:abababababababababababababababababababababababababababababababab"
+      },
+      {
+        "name": "uppercase hash",
+        "text": "cr1:map:Name:ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB"
+      },
+      {
+        "name": "other version",
+        "text": "cr2:map:Name:abababababababababababababababababababababababababababababababab"
+      }
+    ]
+  }
+}

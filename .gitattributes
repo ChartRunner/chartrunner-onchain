@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Hashed byte for byte by the drift-guard tests: never normalize.
+test-vectors/** -text

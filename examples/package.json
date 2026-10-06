@@ -1,0 +1,12 @@
+{
+  "name": "chartrunner-onchain-examples",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "offline": "node verify-offline.mjs",
+    "devnet": "node verify-devnet-signature.mjs"
+  },
+  "dependencies": {
+    "@chartrunner/verify": "workspace:*"
+  }
+}

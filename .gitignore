@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+*.log
+# Local environment files never belong in this repository.
+.env
+.env.*
+# Copied in by `prepack` so the npm tarball carries them; the canonical files are at the repo root.
+packages/verify/LICENSE
+packages/verify/NOTICE

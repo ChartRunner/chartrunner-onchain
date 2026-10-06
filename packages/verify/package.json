@@ -1,0 +1,55 @@
+{
+  "name": "@chartrunner/verify",
+  "version": "0.1.0",
+  "description": "Verify a ChartRunner Trading Cup or leaderboard result against its Solana-anchored Merkle root, without the ChartRunner app.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChartRunner/chartrunner-onchain.git",
+    "directory": "packages/verify"
+  },
+  "homepage": "https://github.com/ChartRunner/chartrunner-onchain/tree/main/packages/verify#readme",
+  "bugs": "https://github.com/ChartRunner/chartrunner-onchain/issues",
+  "keywords": [
+    "chartrunner",
+    "solana",
+    "merkle",
+    "memo",
+    "verification"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "chartrunner-verify": "./bin/chartrunner-verify.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "pnpm run build && cp ../../LICENSE ../../NOTICE ."
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
+  }
+}

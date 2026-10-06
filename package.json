@@ -1,0 +1,23 @@
+{
+  "name": "chartrunner-onchain",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "test": "pnpm -r test",
+    "vectors:check": "node scripts/gen-vectors.mjs --check",
+    "examples": "pnpm --filter chartrunner-onchain-examples offline"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "typescript-eslint": "8.70.1"
+  }
+}
