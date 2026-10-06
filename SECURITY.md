@@ -4,7 +4,7 @@
 
 Please report security problems privately, not in a public issue.
 
-- Email: `security@REPLACE-WITH-CONTACT-DOMAIN` <!-- TODO(owner): replace with the real security contact before this repository is made public. -->
+- Email: `info@chartrunner.xyz`
 - Or use GitHub's "Report a vulnerability" button on this repository (private vulnerability reporting), if it is enabled.
 
 Include what you found, how to reproduce it, and what you think the impact is. We will acknowledge the report, keep you
