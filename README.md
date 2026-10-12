@@ -24,6 +24,49 @@ This repository contains:
 Not in this repository: the archived v1 Anchor programs (devnet only, unaudited). Anchors do not use a custom program;
 they are plain SPL Memo transactions.
 
+## For the Colosseum jury
+
+ChartRunner is a game-first trading terminal on Solana: a runner game on live candles, multiplayer rooms, timed paper-trading
+Trading Cups, and non-custodial Jupiter spot swaps. The app itself (<https://app.chartrunner.xyz>) is closed source. This
+repository is the part that is open on purpose: the format of the results ChartRunner writes to Solana mainnet, and the code
+anyone can use to check them without trusting us.
+
+What is live on mainnet today:
+
+- Every finished Trading Cup and every daily leaderboard is anchored as one SPL Memo, signed by the published operator
+  address `68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy` ([SPEC.md section 2.6](SPEC.md#26-operator-addresses)).
+  33 anchors (27 cups, 5 free-play boards, 1 daily board) were posted between 2026-10-06 and 2026-10-12. The full list is
+  at <https://app.chartrunner.xyz/api/anchors?limit=100>.
+- The app's `/verify` page runs the library in this repository in the browser.
+
+Check a real cup yourself in about a minute (Node 24, pnpm 11, any mainnet RPC):
+
+```sh
+git clone https://github.com/ChartRunner/chartrunner-onchain.git && cd chartrunner-onchain
+pnpm install && pnpm build
+CUP=3277e988-3f27-4de1-9954-4f5681c34fbd   # "Pitch Demo Cup"
+curl -s "https://app.chartrunner.xyz/api/cups/$CUP/results" > results.json
+SIG=$(curl -s "https://app.chartrunner.xyz/api/anchors?kind=cup&id=$CUP" | jq -r '.anchors[0].signature')
+node packages/verify/dist/cli.js --rows results.json --sig "$SIG" --rpc https://api.mainnet-beta.solana.com \
+  --signer 68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy --kind cup --id "$CUP" --verify-signature --check-equivocation
+```
+
+Expected output (exit code `0`):
+
+```
+VERIFIED  cup 3277e988-3f27-4de1-9954-4f5681c34fbd: 2 rows rebuild root c08eae042e433c371dbae5ae3bc1f1cbcc1e781814015e2c7e55cb7f5fc45c91
+          paid by 68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy, slot 455497319
+          signatures verified locally over the transaction bytes
+          only operator anchor for this kind/id (34 signatures scanned)
+```
+
+Change any `equity` value under `results.standings` in `results.json` and run the last command again: it prints
+`MISMATCH  root_mismatch` and exits `1`. The public RPC above is rate-limited; any mainnet RPC works, and the result does
+not depend on which one you pick.
+
+This repository was started on 2026-10-06, inside the judged window. It contains no code from the earlier ChartRunner v1
+(its archived devnet Anchor programs are not here and are not part of the submission).
+
 ## Why this is open
 
 An anchor is only useful if someone other than ChartRunner can check it. Publishing the format and the verifier means
@@ -115,7 +158,8 @@ existed by that slot. It does not prove:
 ## Security model
 
 - This repository holds no keys and needs none. It only reads public data. The operator's public addresses are listed
-  in [SPEC.md section 2.6](SPEC.md#26-operator-addresses) (to be filled in once the operator keys exist).
+  in [SPEC.md section 2.6](SPEC.md#26-operator-addresses). The mainnet operator is
+  `68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy`.
 - The operator key that signs anchors is never in this repository, in its CI, or in the published package. The
   verifier only compares the fee payer of a transaction with an address you supply.
 - The library has no default RPC endpoint and embeds no API keys. You pick the endpoint, so you decide whom to trust for
