@@ -2,7 +2,7 @@
 
 The specification and reference verifier for ChartRunner's on-chain result anchors.
 
-ChartRunner writes one line to Solana for every frozen Trading Cup and every closed leaderboard day:
+ChartRunner writes one line to Solana for every frozen Trading Cup and every closed free-play or daily-chart leaderboard day:
 
 ```
 chartrunner:v1:<kind>:<id>:<merkle root>:<row count>
@@ -33,7 +33,8 @@ anyone can use to check them without trusting us.
 
 What is live on mainnet today:
 
-- Every finished Trading Cup and every daily leaderboard is anchored as one SPL Memo, signed by the published operator
+- Every finished Trading Cup and every closed free-play and daily-chart leaderboard day is anchored as one SPL Memo
+  (the newer Daily Run and Daily Race boards are not anchored yet), signed by the published operator
   address `68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy` ([SPEC.md section 2.6](SPEC.md#26-operator-addresses)).
   33 anchors (27 cups, 5 free-play boards, 1 daily board) were posted between 2026-10-06 and 2026-10-12. The full list is
   at <https://app.chartrunner.xyz/api/anchors?limit=100>.
