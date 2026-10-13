@@ -75,7 +75,7 @@ Signer models:
 | kind       | signer   | `id`                | leaves                                                              | count | status |
 | ---------- | -------- | ------------------- | ------------------------------------------------------------------- | ----- | ------ |
 | `freeplay` | operator | `YYYY-MM-DD` (UTC)  | board leaf (7.1): best free-play run per player on that UTC day      | any   | active |
-| `daily`    | operator | `YYYY-MM-DD` (UTC)  | board leaf (7.1): best run per player on that day's shared chart     | any   | active |
+| `daily`    | operator | `YYYY-MM-DD` (UTC)  | board leaf (7.1): best run per player on that day's shared chart, runs without a mode | any   | active |
 | `cup`      | operator | the cup id          | cup leaf (7.2): one per final standing                               | any   | active |
 | `dailyrun` | operator | `YYYY-MM-DD` (UTC)  | Daily Run leaf (7.3): best Daily Run per player on that day's chart  | any   | active |
 | `dailyrace`| operator | `YYYY-MM-DD` (UTC)  | Daily Race leaf (7.4): best arrived Daily Race per player that day   | any   | active |
@@ -408,8 +408,10 @@ lowest run id). A race that timed out or died is stored but never ranked, so it 
 race collects no coins, so its score carries no information, and every leaf on this board is an arrived race, so there
 is no `fin` key either.
 
-Because a leaf includes its kind and id (`k` and `d`, or `k` and `id`), a leaf from one snapshot does not hash the same
-as a leaf from another.
+### 7.5 All leaf schemas
+
+Because every leaf schema in this section includes its kind and id (`k` and `d`, or `k` and `id`), a leaf from one
+snapshot does not hash the same as a leaf from another.
 
 ## 8. What an anchor proves, and what it does not
 
