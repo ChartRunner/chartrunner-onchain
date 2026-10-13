@@ -52,6 +52,18 @@
       "signer": "user",
       "status": "planned",
       "count": "one"
+    },
+    {
+      "kind": "dailyrun",
+      "signer": "operator",
+      "status": "active",
+      "count": "any"
+    },
+    {
+      "kind": "dailyrace",
+      "signer": "operator",
+      "status": "active",
+      "count": "any"
     }
   ],
   "pseudonyms": [
@@ -1065,6 +1077,24 @@
           "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
           "count": 1
         }
+      },
+      {
+        "text": "chartrunner:v1:dailyrun:2026-10-12:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:4",
+        "fields": {
+          "kind": "dailyrun",
+          "id": "2026-10-12",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 4
+        }
+      },
+      {
+        "text": "chartrunner:v1:dailyrace:2026-10-12:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3",
+        "fields": {
+          "kind": "dailyrace",
+          "id": "2026-10-12",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 3
+        }
       }
     ],
     "invalid": [
@@ -1143,6 +1173,18 @@
       {
         "name": "user kind with a free-text name as id",
         "text": "chartrunner:v1:map:My Map:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1"
+      },
+      {
+        "name": "hyphenated kind",
+        "text": "chartrunner:v1:daily-run:2026-10-12:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "kind with an underscore",
+        "text": "chartrunner:v1:daily_race:2026-10-12:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "mixed-case new kind",
+        "text": "chartrunner:v1:dailyRun:2026-10-12:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
       }
     ]
   },
@@ -1191,6 +1233,313 @@
       {
         "name": "other version",
         "text": "cr2:map:Name:abababababababababababababababababababababababababababababababab"
+      }
+    ]
+  },
+  "dailyRun": {
+    "kind": "dailyrun",
+    "date": "2026-10-12",
+    "rows": [
+      {
+        "rank": 1,
+        "userId": "user-0001",
+        "handle": "Alice",
+        "runId": "run-0101",
+        "score": 120,
+        "distance": 41,
+        "hardcore": true,
+        "finished": true
+      },
+      {
+        "rank": 2,
+        "userId": "user-0002",
+        "handle": "bob",
+        "runId": "run-0102",
+        "score": 88,
+        "distance": 35,
+        "hardcore": false,
+        "finished": true
+      },
+      {
+        "rank": 2,
+        "userId": "user-0003",
+        "handle": "Cy",
+        "runId": "run-0103",
+        "score": 88,
+        "distance": 22,
+        "hardcore": false,
+        "finished": false
+      },
+      {
+        "rank": 4,
+        "userId": "user-0004",
+        "handle": "Dee",
+        "runId": "run-0104",
+        "score": 0,
+        "distance": 3,
+        "hardcore": true,
+        "finished": false
+      }
+    ],
+    "leaves": [
+      {
+        "v": 1,
+        "k": "dailyrun",
+        "d": "2026-10-12",
+        "rank": 1,
+        "u": "cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10",
+        "h": "f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee",
+        "s": 120,
+        "dist": 41,
+        "hc": true,
+        "fin": true,
+        "r": "7dc8f6001af6f32f7af48784f83e0dc904364df93f92beb23bd8f0a4cc2d6ad4"
+      },
+      {
+        "v": 1,
+        "k": "dailyrun",
+        "d": "2026-10-12",
+        "rank": 2,
+        "u": "a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310",
+        "h": "9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65",
+        "s": 88,
+        "dist": 35,
+        "hc": false,
+        "fin": true,
+        "r": "332174895e3107f7493cd37116ee36afb22969471fbb796607e6e7885bf1074b"
+      },
+      {
+        "v": 1,
+        "k": "dailyrun",
+        "d": "2026-10-12",
+        "rank": 2,
+        "u": "ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6",
+        "h": "37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a",
+        "s": 88,
+        "dist": 22,
+        "hc": false,
+        "fin": false,
+        "r": "615281b48859ceb793b4a70af5247767c397e52ff08da31f03b008f0220d0d28"
+      },
+      {
+        "v": 1,
+        "k": "dailyrun",
+        "d": "2026-10-12",
+        "rank": 4,
+        "u": "58a3f3097992ceead2bedeefe1187304e12a0ce7935b289677d85fa5d84132b4",
+        "h": "263a5c92fd278e16d654812a8a6ad1a81770891a20d624f2a135623bf20e4938",
+        "s": 0,
+        "dist": 3,
+        "hc": true,
+        "fin": false,
+        "r": "51e6e5b7d1fa49623cd979bc037742a5d183cb54356dbed13a3bf97415489aec"
+      }
+    ],
+    "root": "65d46a4da638bb6610987e62e96afd8641aa171130b58fe78544162753c5be41",
+    "count": 4,
+    "memo": "chartrunner:v1:dailyrun:2026-10-12:65d46a4da638bb6610987e62e96afd8641aa171130b58fe78544162753c5be41:4",
+    "sortedLeaves": [
+      {
+        "canonical": "{\"d\":\"2026-10-12\",\"dist\":22,\"fin\":false,\"h\":\"37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a\",\"hc\":false,\"k\":\"dailyrun\",\"r\":\"615281b48859ceb793b4a70af5247767c397e52ff08da31f03b008f0220d0d28\",\"rank\":2,\"s\":88,\"u\":\"ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6\",\"v\":1}",
+        "hash": "15789cd5852b86acc1439f1b636d2ce0d290612a5fea282a84039bb7f8f51a87"
+      },
+      {
+        "canonical": "{\"d\":\"2026-10-12\",\"dist\":35,\"fin\":true,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"hc\":false,\"k\":\"dailyrun\",\"r\":\"332174895e3107f7493cd37116ee36afb22969471fbb796607e6e7885bf1074b\",\"rank\":2,\"s\":88,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "hash": "3b4c2fc138bb52f1c685dbf27ad6bbde142273d16e4e3bbab73ab245db920bc4"
+      },
+      {
+        "canonical": "{\"d\":\"2026-10-12\",\"dist\":41,\"fin\":true,\"h\":\"f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee\",\"hc\":true,\"k\":\"dailyrun\",\"r\":\"7dc8f6001af6f32f7af48784f83e0dc904364df93f92beb23bd8f0a4cc2d6ad4\",\"rank\":1,\"s\":120,\"u\":\"cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10\",\"v\":1}",
+        "hash": "5488de3dc4001baf1fb6ffb6c6f625b4614efab314c482c95abe2c3d0868459a"
+      },
+      {
+        "canonical": "{\"d\":\"2026-10-12\",\"dist\":3,\"fin\":false,\"h\":\"263a5c92fd278e16d654812a8a6ad1a81770891a20d624f2a135623bf20e4938\",\"hc\":true,\"k\":\"dailyrun\",\"r\":\"51e6e5b7d1fa49623cd979bc037742a5d183cb54356dbed13a3bf97415489aec\",\"rank\":4,\"s\":0,\"u\":\"58a3f3097992ceead2bedeefe1187304e12a0ce7935b289677d85fa5d84132b4\",\"v\":1}",
+        "hash": "683b83149a38d40e824f2cdef5817fa78f8a1a5dc0f3e32e41cb7aabd754174a"
+      }
+    ],
+    "proofs": [
+      {
+        "index": 0,
+        "leaf": "{\"d\":\"2026-10-12\",\"dist\":22,\"fin\":false,\"h\":\"37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a\",\"hc\":false,\"k\":\"dailyrun\",\"r\":\"615281b48859ceb793b4a70af5247767c397e52ff08da31f03b008f0220d0d28\",\"rank\":2,\"s\":88,\"u\":\"ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6\",\"v\":1}",
+        "proof": [
+          {
+            "side": "R",
+            "hash": "3b4c2fc138bb52f1c685dbf27ad6bbde142273d16e4e3bbab73ab245db920bc4"
+          },
+          {
+            "side": "R",
+            "hash": "963008e7d5d40ba0ed3c1ac851973bee83f8ef1aaf85001061f2fa36b0a122c0"
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "leaf": "{\"d\":\"2026-10-12\",\"dist\":35,\"fin\":true,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"hc\":false,\"k\":\"dailyrun\",\"r\":\"332174895e3107f7493cd37116ee36afb22969471fbb796607e6e7885bf1074b\",\"rank\":2,\"s\":88,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "proof": [
+          {
+            "side": "L",
+            "hash": "15789cd5852b86acc1439f1b636d2ce0d290612a5fea282a84039bb7f8f51a87"
+          },
+          {
+            "side": "R",
+            "hash": "963008e7d5d40ba0ed3c1ac851973bee83f8ef1aaf85001061f2fa36b0a122c0"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "leaf": "{\"d\":\"2026-10-12\",\"dist\":41,\"fin\":true,\"h\":\"f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee\",\"hc\":true,\"k\":\"dailyrun\",\"r\":\"7dc8f6001af6f32f7af48784f83e0dc904364df93f92beb23bd8f0a4cc2d6ad4\",\"rank\":1,\"s\":120,\"u\":\"cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10\",\"v\":1}",
+        "proof": [
+          {
+            "side": "R",
+            "hash": "683b83149a38d40e824f2cdef5817fa78f8a1a5dc0f3e32e41cb7aabd754174a"
+          },
+          {
+            "side": "L",
+            "hash": "25b8510f6cdf3cf46ccb34d0ee9b06f607a6a549f6ca5cb2a35196774d75a444"
+          }
+        ]
+      },
+      {
+        "index": 3,
+        "leaf": "{\"d\":\"2026-10-12\",\"dist\":3,\"fin\":false,\"h\":\"263a5c92fd278e16d654812a8a6ad1a81770891a20d624f2a135623bf20e4938\",\"hc\":true,\"k\":\"dailyrun\",\"r\":\"51e6e5b7d1fa49623cd979bc037742a5d183cb54356dbed13a3bf97415489aec\",\"rank\":4,\"s\":0,\"u\":\"58a3f3097992ceead2bedeefe1187304e12a0ce7935b289677d85fa5d84132b4\",\"v\":1}",
+        "proof": [
+          {
+            "side": "L",
+            "hash": "5488de3dc4001baf1fb6ffb6c6f625b4614efab314c482c95abe2c3d0868459a"
+          },
+          {
+            "side": "L",
+            "hash": "25b8510f6cdf3cf46ccb34d0ee9b06f607a6a549f6ca5cb2a35196774d75a444"
+          }
+        ]
+      }
+    ]
+  },
+  "dailyRace": {
+    "kind": "dailyrace",
+    "date": "2026-10-12",
+    "rows": [
+      {
+        "rank": 1,
+        "userId": "user-0002",
+        "handle": "bob",
+        "runId": "run-0201",
+        "finishTick": 5400,
+        "distance": 60,
+        "hardcore": false
+      },
+      {
+        "rank": 1,
+        "userId": "user-0003",
+        "handle": "Cy",
+        "runId": "run-0202",
+        "finishTick": 5400,
+        "distance": 60,
+        "hardcore": true
+      },
+      {
+        "rank": 3,
+        "userId": "user-0001",
+        "handle": "Alice",
+        "runId": "run-0203",
+        "finishTick": 7199,
+        "distance": 60,
+        "hardcore": false
+      }
+    ],
+    "leaves": [
+      {
+        "v": 1,
+        "k": "dailyrace",
+        "d": "2026-10-12",
+        "rank": 1,
+        "u": "a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310",
+        "h": "9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65",
+        "ft": 5400,
+        "dist": 60,
+        "hc": false,
+        "r": "ef6d18ed5e5e81483b1765b08763241ef6a410fe2dee8736755da5d13eba91b7"
+      },
+      {
+        "v": 1,
+        "k": "dailyrace",
+        "d": "2026-10-12",
+        "rank": 1,
+        "u": "ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6",
+        "h": "37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a",
+        "ft": 5400,
+        "dist": 60,
+        "hc": true,
+        "r": "6d2ce8630d8467200a3f5f3a57a3f3d1482180517b40a064d34c2b66cfc87309"
+      },
+      {
+        "v": 1,
+        "k": "dailyrace",
+        "d": "2026-10-12",
+        "rank": 3,
+        "u": "cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10",
+        "h": "f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee",
+        "ft": 7199,
+        "dist": 60,
+        "hc": false,
+        "r": "026735ff98df8d77908fb2e3e9371df8ef76cbc7fc501cf4ec7c26b04f2afccf"
+      }
+    ],
+    "root": "63e576a0c4e0cbac4966e346aa6fda37fa11b4830526155e83c4333c99c9b15b",
+    "count": 3,
+    "memo": "chartrunner:v1:dailyrace:2026-10-12:63e576a0c4e0cbac4966e346aa6fda37fa11b4830526155e83c4333c99c9b15b:3",
+    "sortedLeaves": [
+      {
+        "canonical": "{\"d\":\"2026-10-12\",\"dist\":60,\"ft\":7199,\"h\":\"f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee\",\"hc\":false,\"k\":\"dailyrace\",\"r\":\"026735ff98df8d77908fb2e3e9371df8ef76cbc7fc501cf4ec7c26b04f2afccf\",\"rank\":3,\"u\":\"cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10\",\"v\":1}",
+        "hash": "35948f86d615b3bfc26cb53a8c6daef050d82c5b53984abc3fd44c03ae090009"
+      },
+      {
+        "canonical": "{\"d\":\"2026-10-12\",\"dist\":60,\"ft\":5400,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"hc\":false,\"k\":\"dailyrace\",\"r\":\"ef6d18ed5e5e81483b1765b08763241ef6a410fe2dee8736755da5d13eba91b7\",\"rank\":1,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "hash": "6a79555c917d0ae4acd3d97cad3d47025e50112e55ba5e4f7615eb3c63094289"
+      },
+      {
+        "canonical": "{\"d\":\"2026-10-12\",\"dist\":60,\"ft\":5400,\"h\":\"37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a\",\"hc\":true,\"k\":\"dailyrace\",\"r\":\"6d2ce8630d8467200a3f5f3a57a3f3d1482180517b40a064d34c2b66cfc87309\",\"rank\":1,\"u\":\"ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6\",\"v\":1}",
+        "hash": "8bf057b0680958a74bd9c2481a5a839b535a4059510a2d6fc97cd86045c44595"
+      }
+    ],
+    "proofs": [
+      {
+        "index": 0,
+        "leaf": "{\"d\":\"2026-10-12\",\"dist\":60,\"ft\":7199,\"h\":\"f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee\",\"hc\":false,\"k\":\"dailyrace\",\"r\":\"026735ff98df8d77908fb2e3e9371df8ef76cbc7fc501cf4ec7c26b04f2afccf\",\"rank\":3,\"u\":\"cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10\",\"v\":1}",
+        "proof": [
+          {
+            "side": "R",
+            "hash": "6a79555c917d0ae4acd3d97cad3d47025e50112e55ba5e4f7615eb3c63094289"
+          },
+          {
+            "side": "R",
+            "hash": "8bf057b0680958a74bd9c2481a5a839b535a4059510a2d6fc97cd86045c44595"
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "leaf": "{\"d\":\"2026-10-12\",\"dist\":60,\"ft\":5400,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"hc\":false,\"k\":\"dailyrace\",\"r\":\"ef6d18ed5e5e81483b1765b08763241ef6a410fe2dee8736755da5d13eba91b7\",\"rank\":1,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "proof": [
+          {
+            "side": "L",
+            "hash": "35948f86d615b3bfc26cb53a8c6daef050d82c5b53984abc3fd44c03ae090009"
+          },
+          {
+            "side": "R",
+            "hash": "8bf057b0680958a74bd9c2481a5a839b535a4059510a2d6fc97cd86045c44595"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "leaf": "{\"d\":\"2026-10-12\",\"dist\":60,\"ft\":5400,\"h\":\"37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a\",\"hc\":true,\"k\":\"dailyrace\",\"r\":\"6d2ce8630d8467200a3f5f3a57a3f3d1482180517b40a064d34c2b66cfc87309\",\"rank\":1,\"u\":\"ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6\",\"v\":1}",
+        "proof": [
+          {
+            "side": "L",
+            "hash": "16cee3d104a3cb93ab7f19a02649d6ee18c4e0d78177dae68527cf740b9564c3"
+          }
+        ]
       }
     ]
   }

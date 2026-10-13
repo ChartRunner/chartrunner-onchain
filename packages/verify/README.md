@@ -40,7 +40,7 @@ chartrunner:v1:<kind>:<id>:<root>:<count>
 
 | field   | rule                                                              |
 | ------- | ----------------------------------------------------------------- |
-| `kind`  | operator kinds `freeplay`, `daily`, `cup`, `xp`; planned user kinds `map`, `strategy`, `bot`, `backtest` (count must be 1) |
+| `kind`  | operator kinds `freeplay`, `daily`, `cup`, `xp`, `dailyrun`, `dailyrace`; planned user kinds `map`, `strategy`, `bot`, `backtest` (count must be 1) |
 | `id`    | 1-64 characters from `A-Z a-z 0-9 . _ -` (cup id, date, ...)      |
 | `root`  | 64 lowercase hex characters                                       |
 | `count` | number of rows, decimal, 1 to 999999999, no leading zeros         |
@@ -61,6 +61,13 @@ The leaf count is not hashed into the root; the memo carries it next to the root
 A cup row (`cupLeaf`) is `{v:1, k:"cup", id, rank, u, h, eq, pct, tr, dq, fh}`: `u`/`h` are sha256 pseudonyms of the
 account and displayed name, `eq` the final equity and `pct` the return as fixed-decimal strings, `tr` the exits, `dq`
 the disqualified flag and `fh` the hash of the fills.
+
+A leaderboard-day row (`boardLeaf`, kinds `freeplay` and `daily`) is `{v:1, k, d, rank, u, h, s, dist, r}`: the date,
+the rank by score, the pseudonyms of the account, the handle and the run, the score and the distance. The daily
+chart's mode boards add to it: a Daily Run row (`dailyRunLeaf`, kind `dailyrun`) is `{v:1, k, d, rank, u, h, s, dist,
+hc, fin, r}` with `hc` the HARDCORE flag and `fin` whether the run survived the 2:00 timer; a Daily Race row
+(`dailyRaceLeaf`, kind `dailyrace`) is `{v:1, k, d, rank, u, h, ft, dist, hc, r}`, ranked by `ft`, the finish tick
+(60 per second, lowest first). See SPEC.md sections 7.1, 7.3 and 7.4.
 
 ## Install
 
@@ -157,7 +164,8 @@ built library itself only needs a runtime with WebCrypto and `fetch` (Node 20+ o
 | `fetchMemo(signature, { rpcUrl, verifySignature? })` | read the memo of a transaction via `getTransaction`; optionally verify its signatures locally |
 | `checkTransactionSignatures(base64, memoProgramId)` | decode a wire transaction and verify every Ed25519 signature (low level) |
 | `verifyAgainstSignature({ signature, rpcUrl, rows \| leaf+proof })` | fetch + verify |
-| `cupLeaf`, `boardLeaf`, `cupLeavesFromStandings`, `userHash`, `handleHash`, `runHash` | build the exact leaves the app anchors |
+| `cupLeaf`, `boardLeaf`, `dailyRunLeaf`, `dailyRaceLeaf`, `cupLeavesFromStandings`, `userHash`, `handleHash`, `runHash` | build the exact leaves the app anchors |
+| `rankRows`, `rankRowsBy` | standard competition ranking (ties share a rank) over rows sorted best first: by score, or by any key such as a race's finish tick |
 | `KINDS`, `ANCHOR_KINDS`, `OPERATOR_KINDS`, `USER_KINDS`, `kindInfo`, `isOperatorKind`, `isUserKind` | the kinds registry: signer model, status, id and count rule of each kind |
 | `signerModelOf(memo)` | which signer rule `expectSigner` applies to a memo |
 | `checkEquivocation({ rpcUrl, operator, kind, id, maxSignatures? })` | scan the operator's history: `none`, `unique`, `duplicate` or `equivocation`, plus the first finalized anchor |

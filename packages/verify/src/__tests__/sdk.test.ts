@@ -6,6 +6,8 @@ import {
   boardLeaf,
   cupLeaf,
   cupLeavesFromStandings,
+  dailyRaceLeaf,
+  dailyRunLeaf,
   formatMemo,
   leafHash,
   memoText,
@@ -13,6 +15,8 @@ import {
   merkleRoot,
   parseMemo,
   parseMemoStrict,
+  rankRows,
+  rankRowsBy,
   serializeRow,
   verifyAgainstMemo,
   verifyProof,
@@ -65,6 +69,26 @@ describe("cross-check against the app's previous implementation (verbatim copy o
     }
     const b = { userId: "u", handle: "Al", runId: "r", score: 5, distance: 9, createdAt: "x", rank: 2 };
     expect(await boardLeaf("daily", "2026-10-02", b)).toEqual(await legacyLeaves.boardLeaf("daily", "2026-10-02", b));
+  });
+  it("Daily Run / Daily Race leaves extend the board leaf: same pseudonyms, same keys where they overlap", async () => {
+    const b = { userId: "u", handle: "Al", runId: "r", score: 5, distance: 9, createdAt: "x", rank: 2 };
+    const board = await boardLeaf("daily", "2026-10-12", b);
+    const run = await dailyRunLeaf("2026-10-12", { ...b, hardcore: false, finished: true });
+    const race = await dailyRaceLeaf("2026-10-12", { ...b, finishTick: 4321, hardcore: true });
+    for (const k of ["v", "d", "rank", "u", "h", "dist", "r"]) {
+      expect(run[k], k).toBe(board[k]);
+      expect(race[k], k).toBe(board[k]);
+    }
+    expect(run).toMatchObject({ k: "dailyrun", s: 5, hc: false, fin: true });
+    expect(race).toMatchObject({ k: "dailyrace", ft: 4321, hc: true });
+    expect("s" in race).toBe(false);
+  });
+  it("rankRowsBy: standard competition ranking over sorted rows", () => {
+    expect(rankRowsBy([], (r: { x: number }) => r.x)).toEqual([]);
+    expect(rankRowsBy([{ x: 9 }, { x: 7 }, { x: 7 }, { x: 1 }], (r) => r.x).map((r) => r.rank)).toEqual([1, 2, 2, 4]);
+    expect(rankRowsBy([{ x: 3 }, { x: 3 }, { x: 3 }], (r) => r.x).map((r) => r.rank)).toEqual([1, 1, 1]);
+    const scored = [{ score: 9 }, { score: 7 }, { score: 7 }, { score: 1 }];
+    expect(rankRowsBy(scored, (r) => r.score)).toEqual(rankRows(scored));
   });
   it("roots, proofs and memos are identical for many sizes", async () => {
     for (const n of [1, 2, 3, 5, 8, 13, 50]) {

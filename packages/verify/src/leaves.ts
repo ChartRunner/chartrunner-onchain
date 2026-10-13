@@ -37,6 +37,86 @@ export async function boardLeaf(kind: "freeplay" | "daily", date: string, row: B
   };
 }
 
+/**
+ * Standard competition ranking over rows already sorted best first by `key`: equal keys share a rank (1, 2, 2, 4).
+ * The Daily Run board ranks by score (higher first), the Daily Race board by finish tick (lower first); the caller
+ * sorts, this only numbers.
+ */
+export function rankRowsBy<T>(rows: readonly T[], key: (row: T) => number): (T & { rank: number })[] {
+  const out: (T & { rank: number })[] = [];
+  rows.forEach((r, i) => {
+    const prev = out[i - 1];
+    out.push({ ...r, rank: prev !== undefined && key(rows[i - 1]!) === key(r) ? prev.rank : i + 1 });
+  });
+  return out;
+}
+
+/** One row of a Daily Run board (best score per player on one UTC date's shared chart, mode "run"). */
+export interface DailyRunRow {
+  userId: string;
+  handle: string;
+  runId: string;
+  score: number;
+  distance: number;
+  /** The run was played in HARDCORE (same board, marked). */
+  hardcore: boolean;
+  /** The best run survived the 2:00 timer (the run's `finished`). */
+  finished: boolean;
+  createdAt: string;
+}
+
+/** One row of a Daily Race board (lowest finish tick per player on one UTC date's shared chart, arrived races only). */
+export interface DailyRaceRow {
+  userId: string;
+  handle: string;
+  runId: string;
+  /** The race time in simulation ticks (60 per second): the tick the run crossed the line. */
+  finishTick: number;
+  distance: number;
+  /** The run was played in HARDCORE (same board, marked). */
+  hardcore: boolean;
+  createdAt: string;
+}
+
+/**
+ * One Daily Run leaf (format v1, kind "dailyrun"): the board leaf of SPEC 7.1 plus `hc` (HARDCORE) and `fin`
+ * (survived the timer). Rank is by score, ties share a rank. Keep in sync with SPEC.md section 7.3.
+ */
+export async function dailyRunLeaf(date: string, row: DailyRunRow & { rank: number }): Promise<LeafEntry> {
+  return {
+    v: 1,
+    k: "dailyrun",
+    d: date,
+    rank: row.rank,
+    u: await userHash(row.userId),
+    h: await handleHash(row.handle),
+    s: row.score,
+    dist: row.distance,
+    hc: row.hardcore,
+    fin: row.finished,
+    r: await runHash(row.runId),
+  };
+}
+
+/**
+ * One Daily Race leaf (format v1, kind "dailyrace"): `ft` (finish tick) in place of the score, plus `hc` (HARDCORE).
+ * Rank is by finish tick, lowest first, ties share a rank. Keep in sync with SPEC.md section 7.4.
+ */
+export async function dailyRaceLeaf(date: string, row: DailyRaceRow & { rank: number }): Promise<LeafEntry> {
+  return {
+    v: 1,
+    k: "dailyrace",
+    d: date,
+    rank: row.rank,
+    u: await userHash(row.userId),
+    h: await handleHash(row.handle),
+    ft: row.finishTick,
+    dist: row.distance,
+    hc: row.hardcore,
+    r: await runHash(row.runId),
+  };
+}
+
 /** The part of a frozen cup standing a leaf commits to (money values are the results document's decimal strings). */
 export interface CupLeafRow {
   rank: number;

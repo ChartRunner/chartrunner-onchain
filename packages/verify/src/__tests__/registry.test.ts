@@ -29,13 +29,17 @@ const OTHER = "SomeoneE1seAddressxxxxxxxxxxxxxxxxxxxxxxxxx";
 
 describe("kinds registry", () => {
   it("lists every kind once, with a signer model", () => {
-    expect([...ANCHOR_KINDS]).toEqual([...OPERATOR_KINDS, ...USER_KINDS]);
+    // Same members; ANCHOR_KINDS keeps registration order (append-only), so new operator kinds come after the user kinds.
+    expect([...ANCHOR_KINDS].sort()).toEqual([...OPERATOR_KINDS, ...USER_KINDS].sort());
+    expect(ANCHOR_KINDS.slice(0, 8)).toEqual(["freeplay", "daily", "cup", "xp", "map", "strategy", "bot", "backtest"]);
     expect(new Set(ANCHOR_KINDS).size).toBe(ANCHOR_KINDS.length);
     for (const k of ANCHOR_KINDS) expect(KINDS[k].kind).toBe(k);
     for (const k of OPERATOR_KINDS) expect(KINDS[k]).toMatchObject({ signer: "operator", count: "any" });
     for (const k of USER_KINDS) expect(KINDS[k]).toMatchObject({ signer: "user", status: "planned", count: "one" });
     expect(KINDS.xp.status).toBe("reserved");
-    expect(["freeplay", "daily", "cup"].map((k) => kindInfo(k)?.status)).toEqual(["active", "active", "active"]);
+    expect(["freeplay", "daily", "cup", "dailyrun", "dailyrace"].map((k) => kindInfo(k)?.status)).toEqual(["active", "active", "active", "active", "active"]);
+    expect(kindInfo("dailyrun")).toMatchObject({ signer: "operator", count: "any", id: "UTC date YYYY-MM-DD" });
+    expect(kindInfo("dailyrace")).toMatchObject({ signer: "operator", count: "any", id: "UTC date YYYY-MM-DD" });
   });
   it("is frozen", () => {
     expect(Object.isFrozen(KINDS)).toBe(true);
@@ -48,6 +52,9 @@ describe("kinds registry", () => {
     expect(isOperatorKind("map")).toBe(false);
     expect(isUserKind("bot")).toBe(true);
     expect(isUserKind("daily")).toBe(false);
+    expect(isOperatorKind("dailyrun")).toBe(true);
+    expect(isOperatorKind("dailyrace")).toBe(true);
+    expect(kindInfo("daily-run")).toBeNull();
     expect(kindInfo("nope")).toBeNull();
     expect(kindInfo("__proto__")).toBeNull();
   });
