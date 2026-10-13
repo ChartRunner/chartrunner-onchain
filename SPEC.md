@@ -52,7 +52,8 @@ kind), the count MUST be exactly `1`.
 A parser MUST reject anything else, including: leading or trailing whitespace or newline, an uppercase kind or root,
 a shorter or longer root, a count of `0`, a count with a leading zero, a count of ten or more digits, a count other than
 `1` for a user kind, an empty or over-long id, an id containing `:` or a space, extra or missing fields, any version
-other than `v1`, and any other prefix. The longest valid memo is 163 bytes.
+other than `v1`, and any other prefix. The longest valid memo is 164 bytes (a 9-character kind such as `dailyrace`, a
+64-character id and a 9-digit count); before `dailyrace` was registered it was 163.
 
 A writer MUST only emit text that this parser accepts and that formats back to the same text (the reference operator
 code parses the memo, re-formats it, and refuses to sign unless the two are identical).
@@ -76,6 +77,8 @@ Signer models:
 | `freeplay` | operator | `YYYY-MM-DD` (UTC)  | board leaf (7.1): best free-play run per player on that UTC day      | any   | active |
 | `daily`    | operator | `YYYY-MM-DD` (UTC)  | board leaf (7.1): best run per player on that day's shared chart     | any   | active |
 | `cup`      | operator | the cup id          | cup leaf (7.2): one per final standing                               | any   | active |
+| `dailyrun` | operator | `YYYY-MM-DD` (UTC)  | Daily Run leaf (7.3): best Daily Run per player on that day's chart  | any   | active |
+| `dailyrace`| operator | `YYYY-MM-DD` (UTC)  | Daily Race leaf (7.4): best arrived Daily Race per player that day   | any   | active |
 | `xp`       | operator | not defined yet     | XP ledger daily totals, schema not defined yet                       | any   | reserved |
 | `map`      | user     | opaque entity id    | one entity leaf, schema not defined yet                              | 1     | planned |
 | `strategy` | user     | opaque entity id    | one entity leaf, schema not defined yet                              | 1     | planned |
@@ -88,6 +91,12 @@ yet; their leaf schema (and, for `xp`, its id) is specified here and frozen befo
 a leaf-plus-proof that the caller already holds.
 
 A day board is anchored only after its UTC day has ended. A cup is anchored after its results are frozen.
+
+The daily chart has three boards per date. Since the Daily Run and Daily Race modes were introduced, a run on the daily
+chart is played in one mode, `run` or `race`, or, for runs from before the modes, in none. `daily` covers the runs
+without a mode (the board from before the modes), `dailyrun` the Daily Run board and `dailyrace` the Daily Race
+board. The three never share a run, and the same date can be anchored under all three. Kind names follow the memo
+grammar (`[a-z]+`): no separator, so `dailyrun`, not `daily-run` or `daily_run`.
 
 The pair (`kind`, `id`) names the snapshot. Verifiers SHOULD pin both (the reference verifier's `expect` option and the
 CLI's `--kind` / `--id`) so that a valid memo for one snapshot cannot be presented as the anchor of another.
@@ -349,6 +358,56 @@ One leaf per standing, built from the frozen results document only (never from l
 reads exactly the fields `rank, userId, name, equity, pnlPct, trades, disqualified, fillsHash` from each standing and
 ignores every other field.
 
+### 7.3 Daily Run leaf (`dailyrun`)
+
+```json
+{"d":"2026-10-12","dist":41,"fin":true,"h":"<hex>","hc":true,"k":"dailyrun","r":"<hex>","rank":1,"s":120,"u":"<hex>","v":1}
+```
+
+The board leaf of 7.1 with two booleans added. Every key that 7.1 also has means exactly what it means there.
+
+| key    | value | why it is in the leaf |
+| ------ | ----- | --------------------- |
+| `v`    | `1` | leaf schema version, as in every leaf |
+| `k`    | `"dailyrun"` | binds the leaf to this board, so a Daily Race or old daily leaf of the same date never hashes the same |
+| `d`    | the UTC date of the daily chart, equal to the memo `id` | binds the leaf to its day |
+| `rank` | standard competition rank by score (ties share a rank: 1, 2, 2, 4) | the position the board shows |
+| `u`    | user pseudonym | one leaf per account; lets a player find their own leaf without the raw id |
+| `h`    | handle pseudonym (the handle the board shows, `guest-` + the first 4 characters of the account id for a player without one) | lets a player look up their leaf by handle, as on the other boards |
+| `s`    | score (integer) | what the board ranks by |
+| `dist` | distance (integer) | shown on the board, as in 7.1 |
+| `hc`   | `true` when the run was played in HARDCORE (boolean) | HARDCORE runs share the board and are marked; the mark is part of the result |
+| `fin`  | `true` when that run survived the 2:00 timer (boolean; the run's `finished`) | the board marks a survived run; it decides the Daily Run reward |
+| `r`    | run pseudonym of the best run | ties the entry to one stored, server-replayed run |
+
+One leaf per player: their best Daily Run of that date (highest score; the earliest run wins a tie, then the lowest run
+id). Every Daily Run counts for the score, whether it survived or not; `fin` describes the run that is the best. All runs
+of a board share one rules version (the version the modes run under); like 7.1, the leaf does not carry it.
+
+### 7.4 Daily Race leaf (`dailyrace`)
+
+```json
+{"d":"2026-10-12","dist":60,"ft":5400,"h":"<hex>","hc":false,"k":"dailyrace","r":"<hex>","rank":1,"u":"<hex>","v":1}
+```
+
+| key    | value | why it is in the leaf |
+| ------ | ----- | --------------------- |
+| `v`    | `1` | leaf schema version |
+| `k`    | `"dailyrace"` | binds the leaf to this board |
+| `d`    | the UTC date of the daily chart, equal to the memo `id` | binds the leaf to its day |
+| `rank` | standard competition rank by finish tick, lowest first (ties share a rank) | the position the board shows |
+| `u`    | user pseudonym | as in 7.3 |
+| `h`    | handle pseudonym (same fallback as 7.3) | as in 7.3 |
+| `ft`   | finish tick (integer, 1 or more): the simulation tick (60 per second) at which the run crossed the line | what the board ranks by; the race time is `ft / 60` seconds. An integer, because the format has no floats |
+| `dist` | distance (integer) | shown on the board, as in 7.1 |
+| `hc`   | `true` when the run was played in HARDCORE (boolean) | as in 7.3 |
+| `r`    | run pseudonym of the best run | as in 7.3 |
+
+One leaf per player: their best ARRIVED race of that date (lowest finish tick; the earliest run wins a tie, then the
+lowest run id). A race that timed out or died is stored but never ranked, so it has no leaf. There is no score key: a
+race collects no coins, so its score carries no information, and every leaf on this board is an arrived race, so there
+is no `fin` key either.
+
 Because a leaf includes its kind and id (`k` and `d`, or `k` and `id`), a leaf from one snapshot does not hash the same
 as a leaf from another.
 
@@ -400,8 +459,16 @@ It does not prove:
   get their leaf schemas the same way, frozen with their first mainnet anchor.
 - Any change to hashing, serialization or the memo grammar requires a new version prefix (`chartrunner:v2:`) with its
   own specification and vectors. Verifiers keep accepting `v1` unchanged.
-- Existing entries in `test-vectors/v1.json` are never edited, only appended to. The ChartRunner app checks the same
+- Existing entries in `test-vectors/v1.json` are never edited, only appended to. New kinds go at the end of its
+  `kinds` list (and of `ANCHOR_KINDS`), whatever their signer model, so the existing entries keep their positions. The ChartRunner app checks the same
   file, pinned by its SHA-256 (see the repository README), so the public SDK and the app cannot drift apart silently.
+
+### 9.1 Registry changes
+
+| date       | change |
+| ---------- | ------ |
+| 2026-10-06 | first mainnet anchors; format v1 frozen with `freeplay`, `daily`, `cup` (active), `xp` (reserved), `map`, `strategy`, `bot`, `backtest` (planned) |
+| 2026-10-13 | `dailyrun` and `dailyrace` added: operator kinds, id the UTC date, count the number of leaves, leaves 7.3 and 7.4. Vectors appended (`dailyRun`, `dailyRace`, two valid and three invalid memos). No existing vector, hash or kind changed |
 
 ## 10. Legacy: the `cr1:` memo format
 
@@ -442,7 +509,7 @@ memo is never a `chartrunner:v1` anchor: `parseMemo` rejects it, and `verifyAgai
 | concern | `packages/verify/src` |
 | ------- | --------------------- |
 | canonical JSON, leaf/node hashing, tree, proofs, memo grammar | `merkle.ts` |
-| pseudonyms, board and cup leaf schemas | `leaves.ts` |
+| pseudonyms, board, Daily Run, Daily Race and cup leaf schemas, ranking | `leaves.ts` |
 | offline verification and failure reasons | `verify.ts` |
 | reading an anchor transaction over JSON-RPC, the rules in 2.4 | `rpc.ts` |
 | wire-transaction decoding and local Ed25519 signature check (2.4 rule 10) | `sigcheck.ts` |

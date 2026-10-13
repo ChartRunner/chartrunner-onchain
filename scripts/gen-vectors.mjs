@@ -69,6 +69,9 @@ const KINDS = [
   { kind: "strategy", signer: "user", status: "planned", count: "one" },
   { kind: "bot", signer: "user", status: "planned", count: "one" },
   { kind: "backtest", signer: "user", status: "planned", count: "one" },
+  // Appended (SPEC 9: the registry only grows, vectors are only appended).
+  { kind: "dailyrun", signer: "operator", status: "active", count: "any" },
+  { kind: "dailyrace", signer: "operator", status: "active", count: "any" },
 ];
 
 // ---- spec section 5: leaf schemas ----
@@ -78,6 +81,9 @@ const runHash = (id) => shaHex(`chartrunner:run:${id}`);
 
 const cupLeaf = (cupId, s) => ({ v: 1, k: "cup", id: cupId, rank: s.rank, u: userHash(s.userId), h: handleHash(s.name), eq: s.equity, pct: s.pnlPct, tr: s.trades, dq: s.disqualified, fh: s.fillsHash });
 const boardLeaf = (kind, date, r) => ({ v: 1, k: kind, d: date, rank: r.rank, u: userHash(r.userId), h: handleHash(r.handle), s: r.score, dist: r.distance, r: runHash(r.runId) });
+// SPEC 7.3 / 7.4
+const dailyRunLeaf = (date, r) => ({ v: 1, k: "dailyrun", d: date, rank: r.rank, u: userHash(r.userId), h: handleHash(r.handle), s: r.score, dist: r.distance, hc: r.hardcore, fin: r.finished, r: runHash(r.runId) });
+const dailyRaceLeaf = (date, r) => ({ v: 1, k: "dailyrace", d: date, rank: r.rank, u: userHash(r.userId), h: handleHash(r.handle), ft: r.finishTick, dist: r.distance, hc: r.hardcore, r: runHash(r.runId) });
 
 // ---- inputs (all synthetic) ----
 const canonicalCases = [
@@ -127,6 +133,21 @@ const boardRows = [
   { rank: 2, userId: "user-0003", handle: "Cy", runId: "run-0003", score: 75, distance: 30 },
 ];
 
+// Daily Run: sorted by score desc (ties share a rank); a HARDCORE row and a best run that did not survive.
+const dailyModesDate = "2026-10-12";
+const dailyRunRows = [
+  { rank: 1, userId: "user-0001", handle: "Alice", runId: "run-0101", score: 120, distance: 41, hardcore: true, finished: true },
+  { rank: 2, userId: "user-0002", handle: "bob", runId: "run-0102", score: 88, distance: 35, hardcore: false, finished: true },
+  { rank: 2, userId: "user-0003", handle: "Cy", runId: "run-0103", score: 88, distance: 22, hardcore: false, finished: false },
+  { rank: 4, userId: "user-0004", handle: "Dee", runId: "run-0104", score: 0, distance: 3, hardcore: true, finished: false },
+];
+// Daily Race: arrived races only, sorted by finish tick asc (ties share a rank).
+const dailyRaceRows = [
+  { rank: 1, userId: "user-0002", handle: "bob", runId: "run-0201", finishTick: 5400, distance: 60, hardcore: false },
+  { rank: 1, userId: "user-0003", handle: "Cy", runId: "run-0202", finishTick: 5400, distance: 60, hardcore: true },
+  { rank: 3, userId: "user-0001", handle: "Alice", runId: "run-0203", finishTick: 7199, distance: 60, hardcore: false },
+];
+
 const R = "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92";
 const validMemos = [
   ["chartrunner:v1:cup:cup-2026.10:" + R + ":3", { kind: "cup", id: "cup-2026.10", root: R, count: 3 }],
@@ -138,6 +159,8 @@ const validMemos = [
   ["chartrunner:v1:strategy:s-1:" + R + ":1", { kind: "strategy", id: "s-1", root: R, count: 1 }],
   ["chartrunner:v1:bot:b-1:" + R + ":1", { kind: "bot", id: "b-1", root: R, count: 1 }],
   ["chartrunner:v1:backtest:bt-1:" + R + ":1", { kind: "backtest", id: "bt-1", root: R, count: 1 }],
+  ["chartrunner:v1:dailyrun:2026-10-12:" + R + ":4", { kind: "dailyrun", id: "2026-10-12", root: R, count: 4 }],
+  ["chartrunner:v1:dailyrace:2026-10-12:" + R + ":3", { kind: "dailyrace", id: "2026-10-12", root: R, count: 3 }],
 ];
 const invalidMemos = [
   ["empty", ""],
@@ -159,6 +182,9 @@ const invalidMemos = [
   ["legacy cr1 memo", `cr1:map:Example:${"ab".repeat(32)}`],
   ["user kind with count 2", `chartrunner:v1:map:e1:${R}:2`],
   ["user kind with a free-text name as id", `chartrunner:v1:map:My Map:${R}:1`],
+  ["hyphenated kind", `chartrunner:v1:daily-run:2026-10-12:${R}:3`],
+  ["kind with an underscore", `chartrunner:v1:daily_race:2026-10-12:${R}:3`],
+  ["mixed-case new kind", `chartrunner:v1:dailyRun:2026-10-12:${R}:3`],
 ];
 
 // ---- spec section 10: legacy cr1 (read-only) ----
@@ -223,6 +249,8 @@ function build() {
 
   const cupLeaves = standings.map((s) => cupLeaf(cupId, s));
   const boardLeaves = boardRows.map((r) => boardLeaf("daily", boardDate, r));
+  const runLeaves = dailyRunRows.map((r) => dailyRunLeaf(dailyModesDate, r));
+  const raceLeaves = dailyRaceRows.map((r) => dailyRaceLeaf(dailyModesDate, r));
   const a = leafHash(canonical({ id: "a", s: 1 }));
   const b = leafHash(canonical({ id: "b", s: 2 }));
 
@@ -254,10 +282,14 @@ function build() {
       valid: validCr1.map(([text, fields]) => ({ text, fields })),
       invalid: invalidCr1.map(([name, text]) => ({ name, text })),
     },
+    // Appended for the dailyrun / dailyrace kinds (SPEC 7.3, 7.4).
+    dailyRun: { kind: "dailyrun", date: dailyModesDate, rows: dailyRunRows, leaves: runLeaves, ...withProofs(treeVector("dailyrun board leaves", "dailyrun", dailyModesDate, runLeaves)) },
+    dailyRace: { kind: "dailyrace", date: dailyModesDate, rows: dailyRaceRows, leaves: raceLeaves, ...withProofs(treeVector("dailyrace board leaves", "dailyrace", dailyModesDate, raceLeaves)) },
   };
 }
 
 const pick = (t) => ({ root: t.root, count: t.count, memo: t.memo });
+const withProofs = (t) => ({ ...pick(t), sortedLeaves: t.sortedLeaves, proofs: t.proofs });
 
 const text = `${JSON.stringify(build(), null, 2)}\n`;
 const mode = process.argv[2];

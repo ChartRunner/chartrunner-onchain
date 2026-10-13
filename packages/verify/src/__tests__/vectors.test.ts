@@ -5,6 +5,8 @@ import {
   ANCHOR_KINDS,
   boardLeaf,
   cupLeavesFromStandings,
+  dailyRaceLeaf,
+  dailyRunLeaf,
   formatMemo,
   handleHash,
   hashNode,
@@ -16,6 +18,7 @@ import {
   parseMemo,
   parseLegacyCr1,
   parseMemoStrict,
+  rankRowsBy,
   runHash,
   serializeRow,
   userHash,
@@ -31,7 +34,7 @@ import {
 
 const VECTORS_URL = new URL("../../../../test-vectors/v1.json", import.meta.url);
 /** sha256 of test-vectors/v1.json. The app pins the same value: update both together, and only to APPEND vectors. */
-const VECTORS_SHA256 = "e75afcbec9e2f30b96ac89dc631f9ce1540b189b7b28ea000a5f026947b7901c";
+const VECTORS_SHA256 = "563ee67172cc80a2343961a12e41b4d0333960a2da6cf1854a7fd56c3e40e6af";
 
 const raw = readFileSync(VECTORS_URL);
 const V = JSON.parse(raw.toString("utf8")) as Vectors;
@@ -61,6 +64,19 @@ interface Vectors {
   board: { kind: "daily" | "freeplay"; date: string; rows: Parameters<typeof boardLeaf>[2][]; leaves: ResultsRow[]; root: string; count: number; memo: string };
   memos: { valid: { text: string; fields: ReturnType<typeof parseMemo> }[]; invalid: { name: string; text: string }[] };
   legacyCr1: { valid: { text: string; fields: ReturnType<typeof parseLegacyCr1> }[]; invalid: { name: string; text: string }[] };
+  dailyRun: ModeVector<Omit<Parameters<typeof dailyRunLeaf>[1], "createdAt">>;
+  dailyRace: ModeVector<Omit<Parameters<typeof dailyRaceLeaf>[1], "createdAt">>;
+}
+interface ModeVector<Row> {
+  kind: "dailyrun" | "dailyrace";
+  date: string;
+  rows: Row[];
+  leaves: ResultsRow[];
+  root: string;
+  count: number;
+  memo: string;
+  sortedLeaves: { canonical: string; hash: string }[];
+  proofs: { index: number; leaf: string; proof: ProofStep[] }[];
 }
 
 describe("test-vectors/v1.json", () => {
@@ -126,6 +142,35 @@ describe("leaf schemas", () => {
     expect(leaves).toEqual(V.board.leaves);
     expect(await merkleRoot(leaves)).toEqual({ root: V.board.root, count: V.board.count });
     expect(formatMemo({ kind: V.board.kind, id: V.board.date, root: V.board.root, count: V.board.count })).toBe(V.board.memo);
+  });
+});
+
+describe("Daily Run and Daily Race leaf schemas (SPEC 7.3, 7.4)", () => {
+  const at = "2026-10-12T00:00:00.000Z";
+  it("dailyrun: ranks by score and builds the vector leaves, root and memo", async () => {
+    const d = V.dailyRun;
+    expect(rankRowsBy(d.rows, (r) => r.score).map((r) => r.rank)).toEqual(d.rows.map((r) => r.rank));
+    const leaves = await Promise.all(d.rows.map((r) => dailyRunLeaf(d.date, { ...r, createdAt: at })));
+    expect(leaves).toEqual(d.leaves);
+    expect(await merkleRoot(leaves)).toEqual({ root: d.root, count: d.count });
+    expect(formatMemo({ kind: "dailyrun", id: d.date, root: d.root, count: d.count })).toBe(d.memo);
+    expect(d.sortedLeaves.map((l) => l.canonical).sort()).toEqual(leaves.map((l) => serializeRow(l)).sort());
+    for (const p of d.proofs) expect(await verifyAgainstMemo({ leaf: p.leaf, proof: p.proof, memoText: d.memo, expect: { kind: "dailyrun", id: d.date } })).toMatchObject({ ok: true });
+  });
+  it("dailyrace: ranks by finish tick (lowest first) and builds the vector leaves, root and memo", async () => {
+    const d = V.dailyRace;
+    expect(rankRowsBy(d.rows, (r) => r.finishTick).map((r) => r.rank)).toEqual(d.rows.map((r) => r.rank));
+    const leaves = await Promise.all(d.rows.map((r) => dailyRaceLeaf(d.date, { ...r, createdAt: at })));
+    expect(leaves).toEqual(d.leaves);
+    expect(await merkleRoot(leaves)).toEqual({ root: d.root, count: d.count });
+    expect(formatMemo({ kind: "dailyrace", id: d.date, root: d.root, count: d.count })).toBe(d.memo);
+    for (const p of d.proofs) expect(await verifyAgainstMemo({ leaf: p.leaf, proof: p.proof, memoText: d.memo, expect: { kind: "dailyrace", id: d.date } })).toMatchObject({ ok: true });
+    // A leaf of one board never verifies against the other board's anchor (k is in the leaf).
+    expect(await verifyAgainstMemo({ leaf: d.proofs[0]!.leaf, proof: d.proofs[0]!.proof, memoText: V.dailyRun.memo })).toMatchObject({ ok: false });
+  });
+  it("the leaves carry exactly the documented keys", () => {
+    expect(Object.keys(V.dailyRun.leaves[0]!).sort()).toEqual(["d", "dist", "fin", "h", "hc", "k", "r", "rank", "s", "u", "v"]);
+    expect(Object.keys(V.dailyRace.leaves[0]!).sort()).toEqual(["d", "dist", "ft", "h", "hc", "k", "r", "rank", "u", "v"]);
   });
 });
 

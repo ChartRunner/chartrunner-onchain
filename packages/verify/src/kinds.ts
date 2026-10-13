@@ -4,15 +4,23 @@
 // Adding a kind is a deliberate, versioned change (SPEC.md section 9). Never remove or redefine a kind.
 
 /** Kinds written by the ChartRunner operator key: the fee payer is the published operator address. */
-export const OPERATOR_KINDS = ["freeplay", "daily", "cup", "xp"] as const;
+export const OPERATOR_KINDS = ["freeplay", "daily", "cup", "xp", "dailyrun", "dailyrace"] as const;
 /** Kinds signed by the user's own wallet (the wallet is among the transaction's signers). Planned, not produced yet. */
 export const USER_KINDS = ["map", "strategy", "bot", "backtest"] as const;
-/** Every kind the memo grammar accepts. */
-export const ANCHOR_KINDS = [...OPERATOR_KINDS, ...USER_KINDS] as const;
+/**
+ * Every kind the memo grammar accepts, in the order the kinds were registered. Append-only, like the `kinds` list of
+ * test-vectors/v1.json: a new kind goes at the end, whatever its signer model.
+ */
+export const ANCHOR_KINDS = ["freeplay", "daily", "cup", "xp", "map", "strategy", "bot", "backtest", "dailyrun", "dailyrace"] as const;
 
 export type OperatorKind = (typeof OPERATOR_KINDS)[number];
 export type UserKind = (typeof USER_KINDS)[number];
 export type AnchorKind = (typeof ANCHOR_KINDS)[number];
+
+// Compile-time guard: ANCHOR_KINDS is exactly the operator kinds plus the user kinds, nothing more and nothing less.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const _registryComplete: Same<AnchorKind, OperatorKind | UserKind> = true;
+void _registryComplete;
 
 /** Who must have signed an anchor of this kind. */
 export type SignerModel = "operator" | "user";
@@ -34,6 +42,8 @@ export interface KindInfo {
 export const KINDS: Readonly<Record<AnchorKind, Readonly<KindInfo>>> = Object.freeze({
   freeplay: { kind: "freeplay", signer: "operator", status: "active", id: "UTC date YYYY-MM-DD", leaf: "board leaf (SPEC 7.1)", count: "any" },
   daily: { kind: "daily", signer: "operator", status: "active", id: "UTC date YYYY-MM-DD", leaf: "board leaf (SPEC 7.1)", count: "any" },
+  dailyrun: { kind: "dailyrun", signer: "operator", status: "active", id: "UTC date YYYY-MM-DD", leaf: "Daily Run leaf (SPEC 7.3)", count: "any" },
+  dailyrace: { kind: "dailyrace", signer: "operator", status: "active", id: "UTC date YYYY-MM-DD", leaf: "Daily Race leaf (SPEC 7.4)", count: "any" },
   cup: { kind: "cup", signer: "operator", status: "active", id: "cup id", leaf: "cup leaf (SPEC 7.2)", count: "any" },
   xp: { kind: "xp", signer: "operator", status: "reserved", id: "not defined yet", leaf: "not defined yet", count: "any" },
   map: { kind: "map", signer: "user", status: "planned", id: "opaque entity id", leaf: "single entity leaf, schema not defined yet", count: "one" },

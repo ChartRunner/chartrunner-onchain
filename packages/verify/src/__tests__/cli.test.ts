@@ -3,7 +3,7 @@ import { copyFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cupLeavesFromStandings, formatMemo, merkleProof, merkleRoot } from "../index.ts";
+import { cupLeavesFromStandings, dailyRaceLeaf, dailyRunLeaf, formatMemo, merkleProof, merkleRoot } from "../index.ts";
 import { exitCodeFor } from "../cli.ts";
 
 const bin = new URL("../../bin/chartrunner-verify.mjs", import.meta.url).pathname;
@@ -38,6 +38,18 @@ describe("chartrunner-verify CLI", async () => {
     const m = await merkleRoot(leaves);
     const f = write("cup.json", { cupId: "cup-9", results: { standings } });
     expect(run("--rows", f, "--memo", formatMemo({ kind: "cup", id: "cup-9", root: m.root, count: m.count })).status).toBe(0);
+  });
+  it("verifies Daily Run and Daily Race board leaves, pinned with --kind / --id", async () => {
+    const date = "2026-10-12";
+    const run1 = await dailyRunLeaf(date, { rank: 1, userId: "u1", handle: "Al", runId: "r1", score: 50, distance: 9, hardcore: true, finished: true, createdAt: "" });
+    const race1 = await dailyRaceLeaf(date, { rank: 1, userId: "u1", handle: "Al", runId: "r2", finishTick: 4000, distance: 60, hardcore: false, createdAt: "" });
+    for (const [kind, leaf] of [["dailyrun", run1], ["dailyrace", race1]] as const) {
+      const m = await merkleRoot([leaf]);
+      const text = formatMemo({ kind, id: date, root: m.root, count: m.count });
+      const f = write(`${kind}.json`, [leaf]);
+      expect(run("--rows", f, "--memo", text, "--kind", kind, "--id", date).status).toBe(0);
+      expect(run("--rows", f, "--memo", text, "--kind", kind === "dailyrun" ? "dailyrace" : "dailyrun").status).toBe(1);
+    }
   });
   it("exits 1 on a tampered row, a wrong root and a malformed memo", () => {
     const tampered = write("t.json", [rows[0], rows[1], { id: "c", s: 4 }]);
