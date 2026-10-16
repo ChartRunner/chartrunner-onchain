@@ -36,11 +36,11 @@ What is live on mainnet today:
 
 - Every finished Trading Cup and every closed free-play and daily-chart leaderboard day is anchored as one SPL Memo
   (the Daily Run and Daily Race boards have their own kinds, `dailyrun` and `dailyrace`, specified in
-  [SPEC.md sections 7.3 and 7.4](SPEC.md#73-daily-run-leaf-dailyrun); their first anchors follow the app release that
-  writes them), signed by the published operator
+  [SPEC.md sections 7.3 and 7.4](SPEC.md#73-daily-run-leaf-dailyrun); the first `dailyrace` anchor is
+  2026-10-14; a board day with no finished entries is not anchored), signed by the published operator
   address `68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy` ([SPEC.md section 2.6](SPEC.md#26-operator-addresses)).
-  33 anchors (27 cups, 5 free-play boards, 1 daily board) were posted between 2026-10-06 and 2026-10-12. The full list is
-  at <https://app.chartrunner.xyz/api/anchors?limit=100>.
+  35 anchors (27 cups, 6 free-play boards, 1 daily board, 1 Daily Race board) were posted between 2026-10-06 and
+  2026-10-15. The full list is at <https://app.chartrunner.xyz/api/anchors?limit=100>.
 - The app's `/verify` page runs the library in this repository in the browser.
 
 Check a real cup yourself in about a minute (Node 24, pnpm 11, any mainnet RPC):
