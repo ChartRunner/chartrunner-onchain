@@ -3,10 +3,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   ANCHOR_KINDS,
+  battleLeaf,
+  battleLeafProblem,
   boardLeaf,
   cupLeavesFromStandings,
   dailyRaceLeaf,
   dailyRunLeaf,
+  fillsCanonical,
+  fillsHash,
   formatMemo,
   handleHash,
   hashNode,
@@ -34,7 +38,7 @@ import {
 
 const VECTORS_URL = new URL("../../../../test-vectors/v1.json", import.meta.url);
 /** sha256 of test-vectors/v1.json. The app pins the same value: update both together, and only to APPEND vectors. */
-const VECTORS_SHA256 = "563ee67172cc80a2343961a12e41b4d0333960a2da6cf1854a7fd56c3e40e6af";
+const VECTORS_SHA256 = "7681b3ee07a8ea7b8ec7ffcf84e787cbe0041964fd2e5549302dfb35c53a99f6";
 
 const raw = readFileSync(VECTORS_URL);
 const V = JSON.parse(raw.toString("utf8")) as Vectors;
@@ -66,6 +70,18 @@ interface Vectors {
   legacyCr1: { valid: { text: string; fields: ReturnType<typeof parseLegacyCr1> }[]; invalid: { name: string; text: string }[] };
   dailyRun: ModeVector<Omit<Parameters<typeof dailyRunLeaf>[1], "createdAt">>;
   dailyRace: ModeVector<Omit<Parameters<typeof dailyRaceLeaf>[1], "createdAt">>;
+  battle: {
+    kind: "battle";
+    window: string;
+    standings: Parameters<typeof battleLeaf>[1][];
+    leaves: ResultsRow[];
+    root: string;
+    count: number;
+    memo: string;
+    sortedLeaves: { canonical: string; hash: string }[];
+    proofs: { index: number; leaf: string; proof: ProofStep[] }[];
+  };
+  fillsHash: { name: string; fills: Parameters<typeof fillsHash>[0]; canonical: string; hash: string }[];
 }
 interface ModeVector<Row> {
   kind: "dailyrun" | "dailyrace";
@@ -171,6 +187,40 @@ describe("Daily Run and Daily Race leaf schemas (SPEC 7.3, 7.4)", () => {
   it("the leaves carry exactly the documented keys", () => {
     expect(Object.keys(V.dailyRun.leaves[0]!).sort()).toEqual(["d", "dist", "fin", "h", "hc", "k", "r", "rank", "s", "u", "v"]);
     expect(Object.keys(V.dailyRace.leaves[0]!).sort()).toEqual(["d", "dist", "ft", "h", "hc", "k", "r", "rank", "u", "v"]);
+  });
+});
+
+describe("battle leaf schema (SPEC 7.5)", () => {
+  it("builds the vector leaves, root and memo from the frozen standings", async () => {
+    const d = V.battle;
+    const leaves = await Promise.all(d.standings.map((s) => battleLeaf(d.window, s)));
+    expect(leaves).toEqual(d.leaves);
+    for (const l of leaves) expect(battleLeafProblem(l, d.window)).toBeNull();
+    expect(await merkleRoot(leaves)).toEqual({ root: d.root, count: d.count });
+    expect(formatMemo({ kind: "battle", id: d.window, root: d.root, count: d.count })).toBe(d.memo);
+    expect(d.sortedLeaves.map((l) => l.canonical).sort()).toEqual(leaves.map((l) => serializeRow(l)).sort());
+    for (const p of d.proofs) expect(await verifyAgainstMemo({ leaf: p.leaf, proof: p.proof, memoText: d.memo, expect: { kind: "battle", id: d.window } })).toMatchObject({ ok: true });
+    // Pinned to another window or kind, the same anchor does not verify.
+    const p0 = d.proofs[0]!;
+    expect(await verifyAgainstMemo({ leaf: p0.leaf, proof: p0.proof, memoText: d.memo, expect: { kind: "battle", id: "2026-10-19T08" } })).toMatchObject({ ok: false });
+    expect(await verifyAgainstMemo({ leaf: p0.leaf, proof: p0.proof, memoText: V.dailyRace.memo })).toMatchObject({ ok: false });
+  });
+  it("the leaves carry exactly the documented keys, in canonical order", () => {
+    expect(Object.keys(V.battle.leaves[0]!).sort()).toEqual(["b", "eq", "fh", "fin", "h", "id", "k", "out", "pct", "rank", "tr", "u", "v"]);
+    expect(V.battle.sortedLeaves[0]!.canonical).toMatch(/^\{"b":"[0-9a-f-]{36}","eq":"[0-9.]+","fh":"[0-9a-f]{64}","fin":(true|false),"h":"[0-9a-f]{64}","id":"2026-10-19T04","k":"battle","out":(true|false),"pct":"-?[0-9.]+","rank":[1-9][0-9]*,"tr":[0-9]+,"u":"[0-9a-f]{64}","v":1\}$/);
+  });
+});
+
+describe("fills hash fh (SPEC 7.2.1)", () => {
+  for (const v of V.fillsHash) {
+    it(v.name, async () => {
+      expect(fillsCanonical(v.fills)).toBe(v.canonical);
+      expect(await fillsHash(v.fills)).toBe(v.hash);
+      expect(createHash("sha256").update(v.canonical, "utf8").digest("hex")).toBe(v.hash);
+    });
+  }
+  it("the empty list is [] and hashes to the documented value", () => {
+    expect(V.fillsHash[0]).toMatchObject({ canonical: "[]", hash: "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945" });
   });
 });
 

@@ -40,10 +40,10 @@ chartrunner:v1:<kind>:<id>:<root>:<count>
 
 | field   | rule                                                              |
 | ------- | ----------------------------------------------------------------- |
-| `kind`  | operator kinds `freeplay`, `daily`, `cup`, `xp`, `dailyrun`, `dailyrace`; planned user kinds `map`, `strategy`, `bot`, `backtest` (count must be 1) |
-| `id`    | 1-64 characters from `A-Z a-z 0-9 . _ -` (cup id, date, ...)      |
+| `kind`  | operator kinds `freeplay`, `daily`, `cup`, `xp`, `dailyrun`, `dailyrace`, `battle`; planned user kinds `map`, `strategy`, `bot`, `backtest` (count must be 1) |
+| `id`    | 1-64 characters from `A-Z a-z 0-9 . _ -` (cup id, date, ...); for `battle`, the 4-hour UTC window `YYYY-MM-DDTHH` on a real date, `HH` one of `00 04 08 12 16 20` |
 | `root`  | 64 lowercase hex characters                                       |
-| `count` | number of rows, decimal, 1 to 999999999, no leading zeros         |
+| `count` | number of rows, decimal, 1 to 999999999, no leading zeros; at most 10000 for `battle` |
 
 Parsing is strict: whitespace, other case, extra fields, other versions and out-of-range counts are all rejected.
 
@@ -60,7 +60,7 @@ The leaf count is not hashed into the root; the memo carries it next to the root
 
 A cup row (`cupLeaf`) is `{v:1, k:"cup", id, rank, u, h, eq, pct, tr, dq, fh}`: `u`/`h` are sha256 pseudonyms of the
 account and displayed name, `eq` the final equity and `pct` the return as fixed-decimal strings, `tr` the exits, `dq`
-the disqualified flag and `fh` the hash of the fills.
+the disqualified flag and `fh` the hash of the fills (`fillsHash`, SPEC 7.2.1).
 
 A leaderboard-day row (`boardLeaf`, kinds `freeplay` and `daily`) is `{v:1, k, d, rank, u, h, s, dist, r}`: the date,
 the rank by score, the pseudonyms of the account, the handle and the run, the score and the distance. The daily
@@ -68,6 +68,12 @@ chart's mode boards add to it: a Daily Run row (`dailyRunLeaf`, kind `dailyrun`)
 hc, fin, r}` with `hc` the HARDCORE flag and `fin` whether the run survived the 2:00 timer; a Daily Race row
 (`dailyRaceLeaf`, kind `dailyrace`) is `{v:1, k, d, rank, u, h, ft, dist, hc, r}`, ranked by `ft`, the finish tick
 (60 per second, lowest first). See SPEC.md sections 7.1, 7.3 and 7.4.
+
+A battle row (`battleLeaf`, kind `battle`) is `{v:1, k:"battle", id, b, rank, u, h, eq, pct, tr, out, fin, fh}`: `id` the
+4-hour UTC window the battle's results were frozen in, `b` the battle's lowercase UUID (never its join code), `u`/`h`,
+`eq`, `pct`, `tr` and `fh` as in a cup row (`eq` with exactly 6 decimals, `pct` with exactly 4, `-` when negative),
+`out` knocked out (Last Man Standing) and `fin` reached the target (Profit Race). `battleLeaf` refuses any input outside
+the schema; `battleLeafProblem` / `isBattleLeaf` check a built leaf. See SPEC.md section 7.5.
 
 ## Install
 
@@ -164,9 +170,11 @@ built library itself only needs a runtime with WebCrypto and `fetch` (Node 20+ o
 | `fetchMemo(signature, { rpcUrl, verifySignature? })` | read the memo of a transaction via `getTransaction`; optionally verify its signatures locally |
 | `checkTransactionSignatures(base64, memoProgramId)` | decode a wire transaction and verify every Ed25519 signature (low level) |
 | `verifyAgainstSignature({ signature, rpcUrl, rows \| leaf+proof })` | fetch + verify |
-| `cupLeaf`, `boardLeaf`, `dailyRunLeaf`, `dailyRaceLeaf`, `cupLeavesFromStandings`, `userHash`, `handleHash`, `runHash` | build the exact leaves the app anchors |
+| `cupLeaf`, `boardLeaf`, `dailyRunLeaf`, `dailyRaceLeaf`, `battleLeaf`, `cupLeavesFromStandings`, `userHash`, `handleHash`, `runHash` | build the exact leaves the app anchors |
+| `battleLeafProblem`, `isBattleLeaf`, `isBattleWindowId`, `MAX_BATTLE_LEAVES` | check a battle leaf and a battle window id against SPEC 7.5 and 2.2 |
+| `fillsHash`, `fillsCanonical`, `fillsCommitment`, `CUP_ORDER_TYPES`, `BATTLE_ORDER_TYPES` | the `fh` of a cup or battle standing from its fills (SPEC 7.2.1): canonical fill list in submission order plus final-sweep liquidations, SHA-256 |
 | `rankRows`, `rankRowsBy` | standard competition ranking (ties share a rank) over rows sorted best first: by score, or by any key such as a race's finish tick |
-| `KINDS`, `ANCHOR_KINDS`, `OPERATOR_KINDS`, `USER_KINDS`, `kindInfo`, `isOperatorKind`, `isUserKind` | the kinds registry: signer model, status, id and count rule of each kind |
+| `KINDS`, `ANCHOR_KINDS`, `OPERATOR_KINDS`, `USER_KINDS`, `kindInfo`, `isOperatorKind`, `isUserKind`, `kindRuleViolation` | the kinds registry: signer model, status, id and count rule of each kind |
 | `signerModelOf(memo)` | which signer rule `expectSigner` applies to a memo |
 | `checkEquivocation({ rpcUrl, operator, kind, id, maxSignatures? })` | scan the operator's history: `none`, `unique`, `duplicate` or `equivocation`, plus the first finalized anchor |
 | `anchorStanding(result, checked)` | find the anchor being verified in a completed scan and apply the first-finalized-wins rule: `not_in_scan` (uniqueness not checked), `sole`, `duplicate`, `equivocation_first` (same root and count as the first finalized: pass, warn) or `not_first` (fail) |

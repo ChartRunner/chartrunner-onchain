@@ -64,6 +64,12 @@
       "signer": "operator",
       "status": "active",
       "count": "any"
+    },
+    {
+      "kind": "battle",
+      "signer": "operator",
+      "status": "active",
+      "count": "any"
     }
   ],
   "pseudonyms": [
@@ -1095,6 +1101,33 @@
           "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
           "count": 3
         }
+      },
+      {
+        "text": "chartrunner:v1:battle:2026-10-19T04:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:5",
+        "fields": {
+          "kind": "battle",
+          "id": "2026-10-19T04",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 5
+        }
+      },
+      {
+        "text": "chartrunner:v1:battle:2026-10-19T20:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:10000",
+        "fields": {
+          "kind": "battle",
+          "id": "2026-10-19T20",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 10000
+        }
+      },
+      {
+        "text": "chartrunner:v1:battle:2028-02-29T00:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:1",
+        "fields": {
+          "kind": "battle",
+          "id": "2028-02-29T00",
+          "root": "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92",
+          "count": 1
+        }
       }
     ],
     "invalid": [
@@ -1185,6 +1218,50 @@
       {
         "name": "mixed-case new kind",
         "text": "chartrunner:v1:dailyRun:2026-10-12:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window hour not a multiple of 4",
+        "text": "chartrunner:v1:battle:2026-10-19T03:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window hour 24",
+        "text": "chartrunner:v1:battle:2026-10-19T24:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window on a date that does not exist",
+        "text": "chartrunner:v1:battle:2026-02-30T00:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window on Feb 29 of a common year",
+        "text": "chartrunner:v1:battle:2026-02-29T00:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window without the T",
+        "text": "chartrunner:v1:battle:2026-10-1904:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window with only a date",
+        "text": "chartrunner:v1:battle:2026-10-19:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window with a one-digit hour",
+        "text": "chartrunner:v1:battle:2026-10-19T4:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle window with a lowercase t",
+        "text": "chartrunner:v1:battle:2026-10-19t04:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "uppercase battle kind",
+        "text": "chartrunner:v1:BATTLE:2026-10-19T04:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "mixed-case battle kind",
+        "text": "chartrunner:v1:Battle:2026-10-19T04:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:3"
+      },
+      {
+        "name": "battle anchor over 10000 leaves",
+        "text": "chartrunner:v1:battle:2026-10-19T04:0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92:10001"
       }
     ]
   },
@@ -1542,5 +1619,331 @@
         ]
       }
     ]
-  }
+  },
+  "battle": {
+    "kind": "battle",
+    "window": "2026-10-19T04",
+    "standings": [
+      {
+        "battleId": "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f",
+        "rank": 1,
+        "userId": "user-0001",
+        "name": "Alice",
+        "equity": "10842.120000",
+        "pnlPct": "8.4212",
+        "trades": 8,
+        "out": false,
+        "finished": false,
+        "fillsHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "battleId": "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f",
+        "rank": 2,
+        "userId": "user-0002",
+        "name": "Bob",
+        "equity": "9731.500000",
+        "pnlPct": "-2.6850",
+        "trades": 5,
+        "out": false,
+        "finished": false,
+        "fillsHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      {
+        "battleId": "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f",
+        "rank": 3,
+        "userId": "user-0003",
+        "name": "Cy",
+        "equity": "0.000000",
+        "pnlPct": "-100.0000",
+        "trades": 12,
+        "out": true,
+        "finished": false,
+        "fillsHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      {
+        "battleId": "a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81",
+        "rank": 1,
+        "userId": "user-0002",
+        "name": "Bob",
+        "equity": "11000.000000",
+        "pnlPct": "10.0000",
+        "trades": 3,
+        "out": false,
+        "finished": true,
+        "fillsHash": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "battleId": "a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81",
+        "rank": 2,
+        "userId": "user-0004",
+        "name": "Dee",
+        "equity": "10000.000000",
+        "pnlPct": "0.0000",
+        "trades": 0,
+        "out": false,
+        "finished": false,
+        "fillsHash": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ],
+    "leaves": [
+      {
+        "v": 1,
+        "k": "battle",
+        "id": "2026-10-19T04",
+        "b": "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f",
+        "rank": 1,
+        "u": "cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10",
+        "h": "f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee",
+        "eq": "10842.120000",
+        "pct": "8.4212",
+        "tr": 8,
+        "out": false,
+        "fin": false,
+        "fh": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "v": 1,
+        "k": "battle",
+        "id": "2026-10-19T04",
+        "b": "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f",
+        "rank": 2,
+        "u": "a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310",
+        "h": "9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65",
+        "eq": "9731.500000",
+        "pct": "-2.6850",
+        "tr": 5,
+        "out": false,
+        "fin": false,
+        "fh": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      {
+        "v": 1,
+        "k": "battle",
+        "id": "2026-10-19T04",
+        "b": "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f",
+        "rank": 3,
+        "u": "ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6",
+        "h": "37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a",
+        "eq": "0.000000",
+        "pct": "-100.0000",
+        "tr": 12,
+        "out": true,
+        "fin": false,
+        "fh": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      {
+        "v": 1,
+        "k": "battle",
+        "id": "2026-10-19T04",
+        "b": "a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81",
+        "rank": 1,
+        "u": "a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310",
+        "h": "9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65",
+        "eq": "11000.000000",
+        "pct": "10.0000",
+        "tr": 3,
+        "out": false,
+        "fin": true,
+        "fh": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "v": 1,
+        "k": "battle",
+        "id": "2026-10-19T04",
+        "b": "a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81",
+        "rank": 2,
+        "u": "58a3f3097992ceead2bedeefe1187304e12a0ce7935b289677d85fa5d84132b4",
+        "h": "263a5c92fd278e16d654812a8a6ad1a81770891a20d624f2a135623bf20e4938",
+        "eq": "10000.000000",
+        "pct": "0.0000",
+        "tr": 0,
+        "out": false,
+        "fin": false,
+        "fh": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ],
+    "root": "a1bade0839035f3ca3e83d521c3b68da8467f3073822d774e08b92e89b0aabdc",
+    "count": 5,
+    "memo": "chartrunner:v1:battle:2026-10-19T04:a1bade0839035f3ca3e83d521c3b68da8467f3073822d774e08b92e89b0aabdc:5",
+    "sortedLeaves": [
+      {
+        "canonical": "{\"b\":\"3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f\",\"eq\":\"9731.500000\",\"fh\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"fin\":false,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"-2.6850\",\"rank\":2,\"tr\":5,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "hash": "24c7b02e985996d83ce13ab044c03d6d6c080d95fdfd2254cf2c5421163d867d"
+      },
+      {
+        "canonical": "{\"b\":\"3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f\",\"eq\":\"0.000000\",\"fh\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"fin\":false,\"h\":\"37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":true,\"pct\":\"-100.0000\",\"rank\":3,\"tr\":12,\"u\":\"ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6\",\"v\":1}",
+        "hash": "495c091060ce26beeecf68153acf75b007a53644fc636f2142890af249775813"
+      },
+      {
+        "canonical": "{\"b\":\"a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81\",\"eq\":\"10000.000000\",\"fh\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"fin\":false,\"h\":\"263a5c92fd278e16d654812a8a6ad1a81770891a20d624f2a135623bf20e4938\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"0.0000\",\"rank\":2,\"tr\":0,\"u\":\"58a3f3097992ceead2bedeefe1187304e12a0ce7935b289677d85fa5d84132b4\",\"v\":1}",
+        "hash": "4c421b0d0edeba1b073fcdf61d646c2b86a9d81164f3b43b9361e6b7ebf28762"
+      },
+      {
+        "canonical": "{\"b\":\"3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f\",\"eq\":\"10842.120000\",\"fh\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"fin\":false,\"h\":\"f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"8.4212\",\"rank\":1,\"tr\":8,\"u\":\"cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10\",\"v\":1}",
+        "hash": "6cf37505ca7c2fdf8c8189b64964f5e7e379172a788a1b5da47f4e7793465ef3"
+      },
+      {
+        "canonical": "{\"b\":\"a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81\",\"eq\":\"11000.000000\",\"fh\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"fin\":true,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"10.0000\",\"rank\":1,\"tr\":3,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "hash": "db7478cb6c6c565aab2fa4fa05e73e3f07962e5a89d5778efdeba7de5665b071"
+      }
+    ],
+    "proofs": [
+      {
+        "index": 0,
+        "leaf": "{\"b\":\"3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f\",\"eq\":\"9731.500000\",\"fh\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"fin\":false,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"-2.6850\",\"rank\":2,\"tr\":5,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "proof": [
+          {
+            "side": "R",
+            "hash": "495c091060ce26beeecf68153acf75b007a53644fc636f2142890af249775813"
+          },
+          {
+            "side": "R",
+            "hash": "34b7a1dd614311a315badfb73030fa887360541e83e3204b4fd5bae9f9cf9ba2"
+          },
+          {
+            "side": "R",
+            "hash": "db7478cb6c6c565aab2fa4fa05e73e3f07962e5a89d5778efdeba7de5665b071"
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "leaf": "{\"b\":\"3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f\",\"eq\":\"0.000000\",\"fh\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"fin\":false,\"h\":\"37e5c092ea11c0e8377ed7cb67655cbe9743db9622c32c5043ac103184e8564a\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":true,\"pct\":\"-100.0000\",\"rank\":3,\"tr\":12,\"u\":\"ebba193792b200e77597b72e0519249a826db487dee7f7e3a6c0ef10eaae81c6\",\"v\":1}",
+        "proof": [
+          {
+            "side": "L",
+            "hash": "24c7b02e985996d83ce13ab044c03d6d6c080d95fdfd2254cf2c5421163d867d"
+          },
+          {
+            "side": "R",
+            "hash": "34b7a1dd614311a315badfb73030fa887360541e83e3204b4fd5bae9f9cf9ba2"
+          },
+          {
+            "side": "R",
+            "hash": "db7478cb6c6c565aab2fa4fa05e73e3f07962e5a89d5778efdeba7de5665b071"
+          }
+        ]
+      },
+      {
+        "index": 2,
+        "leaf": "{\"b\":\"a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81\",\"eq\":\"10000.000000\",\"fh\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"fin\":false,\"h\":\"263a5c92fd278e16d654812a8a6ad1a81770891a20d624f2a135623bf20e4938\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"0.0000\",\"rank\":2,\"tr\":0,\"u\":\"58a3f3097992ceead2bedeefe1187304e12a0ce7935b289677d85fa5d84132b4\",\"v\":1}",
+        "proof": [
+          {
+            "side": "R",
+            "hash": "6cf37505ca7c2fdf8c8189b64964f5e7e379172a788a1b5da47f4e7793465ef3"
+          },
+          {
+            "side": "L",
+            "hash": "9b12243293472d0caa0938243a36e5996bb8f1e4903bac3ad2db98093c64bd21"
+          },
+          {
+            "side": "R",
+            "hash": "db7478cb6c6c565aab2fa4fa05e73e3f07962e5a89d5778efdeba7de5665b071"
+          }
+        ]
+      },
+      {
+        "index": 3,
+        "leaf": "{\"b\":\"3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f\",\"eq\":\"10842.120000\",\"fh\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"fin\":false,\"h\":\"f0a86417a98d7c30b21117edb4cf41047add8ac05215fe7ed7fe4708143b07ee\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"8.4212\",\"rank\":1,\"tr\":8,\"u\":\"cd1b65904801cca9643aaf213b69368b1725517f018a75f2b2548a152584cf10\",\"v\":1}",
+        "proof": [
+          {
+            "side": "L",
+            "hash": "4c421b0d0edeba1b073fcdf61d646c2b86a9d81164f3b43b9361e6b7ebf28762"
+          },
+          {
+            "side": "L",
+            "hash": "9b12243293472d0caa0938243a36e5996bb8f1e4903bac3ad2db98093c64bd21"
+          },
+          {
+            "side": "R",
+            "hash": "db7478cb6c6c565aab2fa4fa05e73e3f07962e5a89d5778efdeba7de5665b071"
+          }
+        ]
+      },
+      {
+        "index": 4,
+        "leaf": "{\"b\":\"a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81\",\"eq\":\"11000.000000\",\"fh\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"fin\":true,\"h\":\"9f867447463fd16b1713794175b80e4012bfd1e3b643495788a069b0a18a4a65\",\"id\":\"2026-10-19T04\",\"k\":\"battle\",\"out\":false,\"pct\":\"10.0000\",\"rank\":1,\"tr\":3,\"u\":\"a6d5c991038c029b47c91c6eb02528bdb8cfbf7599d42050b45bf1dfe4fe8310\",\"v\":1}",
+        "proof": [
+          {
+            "side": "L",
+            "hash": "8a6472fd10726cfa88506c573582fb579a7fa1cc4aa89147f2ef6e90b3fd87f8"
+          }
+        ]
+      }
+    ]
+  },
+  "fillsHash": [
+    {
+      "name": "no fills",
+      "fills": [],
+      "canonical": "[]",
+      "hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "name": "open, reduce with realized/net, final-sweep liquidation",
+      "fills": [
+        {
+          "t": 1760846400000,
+          "symbol": "SOL",
+          "side": "long",
+          "kind": "open",
+          "orderType": "market",
+          "qty": 12.5,
+          "price": 187.4321,
+          "fee": 1.17145063,
+          "realized": null,
+          "net": null,
+          "leverage": 5
+        },
+        {
+          "t": 1760847300250,
+          "symbol": "SOL",
+          "side": "long",
+          "kind": "reduce",
+          "orderType": "market",
+          "qty": 5,
+          "price": 191.2,
+          "fee": 0.478,
+          "realized": 18.8395,
+          "net": 18.3615,
+          "leverage": 5
+        },
+        {
+          "t": 1760860799999,
+          "symbol": "SOL",
+          "side": "long",
+          "kind": "liquidation",
+          "orderType": "liquidation",
+          "qty": 7.5,
+          "price": 150.12345678,
+          "fee": 0,
+          "realized": null,
+          "net": -280.4627,
+          "leverage": 5
+        }
+      ],
+      "canonical": "[{\"fee\":\"1.17145063\",\"kind\":\"open\",\"leverage\":5,\"net\":null,\"orderType\":\"market\",\"price\":\"187.43210000\",\"qty\":\"12.5000000000\",\"realized\":null,\"seq\":1,\"side\":\"long\",\"symbol\":\"SOL\",\"t\":1760846400000},{\"fee\":\"0.47800000\",\"kind\":\"reduce\",\"leverage\":5,\"net\":\"18.36150000\",\"orderType\":\"market\",\"price\":\"191.20000000\",\"qty\":\"5.0000000000\",\"realized\":\"18.83950000\",\"seq\":2,\"side\":\"long\",\"symbol\":\"SOL\",\"t\":1760847300250},{\"fee\":\"0.00000000\",\"kind\":\"liquidation\",\"leverage\":5,\"net\":\"-280.46270000\",\"orderType\":\"liquidation\",\"price\":\"150.12345678\",\"qty\":\"7.5000000000\",\"realized\":null,\"seq\":3,\"side\":\"long\",\"symbol\":\"SOL\",\"t\":1760860799999}]",
+      "hash": "d2f13a7274cfbfed4ec5b15f9c5ddb4ca1fb361f82bc371d9c542454e0effad4"
+    },
+    {
+      "name": "negative zero is written without the sign",
+      "fills": [
+        {
+          "t": 1760846400000,
+          "symbol": "BTC",
+          "side": "short",
+          "kind": "close",
+          "orderType": "market",
+          "qty": -1e-11,
+          "price": 65000,
+          "fee": 0,
+          "realized": -1e-9,
+          "net": -4e-10,
+          "leverage": 1
+        }
+      ],
+      "canonical": "[{\"fee\":\"0.00000000\",\"kind\":\"close\",\"leverage\":1,\"net\":\"0.00000000\",\"orderType\":\"market\",\"price\":\"65000.00000000\",\"qty\":\"0.0000000000\",\"realized\":\"0.00000000\",\"seq\":1,\"side\":\"short\",\"symbol\":\"BTC\",\"t\":1760846400000}]",
+      "hash": "62917553ecc089cd761fbe050241a0b62d84a01a5ca4b7e4929b9092cca3d02a"
+    }
+  ]
 }

@@ -1,4 +1,4 @@
-import { ID_RE, isKind, KINDS, type AnchorKind } from "./kinds.ts";
+import { ID_RE, isKind, KINDS, kindRuleViolation, type AnchorKind } from "./kinds.ts";
 
 // Deterministic Merkle commitments for ChartRunner results. Isomorphic (WebCrypto only), so the exact same code
 // runs on the server (building a snapshot) and in the browser (/verify recomputes the root itself).
@@ -188,6 +188,8 @@ export function memoText(f: MemoFields): string {
   if (!isHash(f.root)) throw new Error("invalid root");
   if (!Number.isSafeInteger(f.count) || f.count < 1 || f.count > MAX_MEMO_COUNT) throw new Error("invalid count");
   if (KINDS[f.kind].count === "one" && f.count !== 1) throw new Error("invalid count: this kind anchors a single leaf");
+  const rule = kindRuleViolation(f.kind, f.id, f.count);
+  if (rule) throw new Error(`invalid memo: ${rule}`);
   return `${MEMO_PREFIX}${f.kind}:${f.id}:${f.root}:${f.count}`;
 }
 
@@ -195,6 +197,6 @@ export function parseMemo(text: string): MemoFields | null {
   const m = /^chartrunner:v1:([a-z]+):([A-Za-z0-9._-]{1,64}):([0-9a-f]{64}):([1-9][0-9]{0,8})$/.exec(text);
   if (!m || !isKind(m[1])) return null;
   const count = Number(m[4]);
-  if (KINDS[m[1]].count === "one" && count !== 1) return null;
+  if (kindRuleViolation(m[1], m[2]!, count) !== null) return null;
   return { kind: m[1], id: m[2]!, root: m[3]!, count };
 }

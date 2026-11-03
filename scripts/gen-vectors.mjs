@@ -72,6 +72,7 @@ const KINDS = [
   // Appended (SPEC 9: the registry only grows, vectors are only appended).
   { kind: "dailyrun", signer: "operator", status: "active", count: "any" },
   { kind: "dailyrace", signer: "operator", status: "active", count: "any" },
+  { kind: "battle", signer: "operator", status: "active", count: "any" },
 ];
 
 // ---- spec section 5: leaf schemas ----
@@ -84,6 +85,8 @@ const boardLeaf = (kind, date, r) => ({ v: 1, k: kind, d: date, rank: r.rank, u:
 // SPEC 7.3 / 7.4
 const dailyRunLeaf = (date, r) => ({ v: 1, k: "dailyrun", d: date, rank: r.rank, u: userHash(r.userId), h: handleHash(r.handle), s: r.score, dist: r.distance, hc: r.hardcore, fin: r.finished, r: runHash(r.runId) });
 const dailyRaceLeaf = (date, r) => ({ v: 1, k: "dailyrace", d: date, rank: r.rank, u: userHash(r.userId), h: handleHash(r.handle), ft: r.finishTick, dist: r.distance, hc: r.hardcore, r: runHash(r.runId) });
+// SPEC 7.5
+const battleLeaf = (windowId, s) => ({ v: 1, k: "battle", id: windowId, b: s.battleId, rank: s.rank, u: userHash(s.userId), h: handleHash(s.name), eq: s.equity, pct: s.pnlPct, tr: s.trades, out: s.out, fin: s.finished, fh: s.fillsHash });
 
 // ---- inputs (all synthetic) ----
 const canonicalCases = [
@@ -148,6 +151,57 @@ const dailyRaceRows = [
   { rank: 3, userId: "user-0001", handle: "Alice", runId: "run-0203", finishTick: 7199, distance: 60, hardcore: false },
 ];
 
+// Battles: two battles frozen in one 4-hour window (2026-10-19 04:00 to 08:00 UTC), one leaf per standing. A Last Man
+// Standing battle (a knocked-out player) and a Profit Race battle (a player who reached the target), a negative
+// return, zero exits, and the same account in both battles.
+const battleWindow = "2026-10-19T04";
+const BATTLE_A = "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f";
+const BATTLE_B = "a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81";
+const battleStandings = [
+  { battleId: BATTLE_A, rank: 1, userId: "user-0001", name: "Alice", equity: "10842.120000", pnlPct: "8.4212", trades: 8, out: false, finished: false, fillsHash: "d".repeat(64) },
+  { battleId: BATTLE_A, rank: 2, userId: "user-0002", name: "Bob", equity: "9731.500000", pnlPct: "-2.6850", trades: 5, out: false, finished: false, fillsHash: "e".repeat(64) },
+  { battleId: BATTLE_A, rank: 3, userId: "user-0003", name: "Cy", equity: "0.000000", pnlPct: "-100.0000", trades: 12, out: true, finished: false, fillsHash: "f".repeat(64) },
+  { battleId: BATTLE_B, rank: 1, userId: "user-0002", name: "Bob", equity: "11000.000000", pnlPct: "10.0000", trades: 3, out: false, finished: true, fillsHash: "1".repeat(64) },
+  { battleId: BATTLE_B, rank: 2, userId: "user-0004", name: "Dee", equity: "10000.000000", pnlPct: "0.0000", trades: 0, out: false, finished: false, fillsHash: "2".repeat(64) },
+];
+
+// SPEC 7.2.1: the fills hash `fh` of a cup or battle standing. Inputs are numbers as the server stores them; each value
+// is written with toFixed (qty 10 decimals, price/fee/realized/net 8), negative zero without the sign.
+const fixed = (v, d) => {
+  const s = v.toFixed(d);
+  return /^-0\.0+$/.test(s) ? s.slice(1) : s;
+};
+const fillObject = (f, i) => ({
+  seq: i + 1,
+  t: f.t,
+  symbol: f.symbol,
+  side: f.side,
+  kind: f.kind,
+  orderType: f.orderType,
+  qty: fixed(f.qty, 10),
+  price: fixed(f.price, 8),
+  fee: fixed(f.fee, 8),
+  realized: f.realized === null ? null : fixed(f.realized, 8),
+  net: f.net === null ? null : fixed(f.net, 8),
+  leverage: f.leverage,
+});
+const fillsText = (fills) => `[${fills.map((f, i) => canonical(fillObject(f, i))).join(",")}]`;
+const fillsCases = [
+  ["no fills", []],
+  [
+    "open, reduce with realized/net, final-sweep liquidation",
+    [
+      { t: 1760846400000, symbol: "SOL", side: "long", kind: "open", orderType: "market", qty: 12.5, price: 187.4321, fee: 1.17145063, realized: null, net: null, leverage: 5 },
+      { t: 1760847300250, symbol: "SOL", side: "long", kind: "reduce", orderType: "market", qty: 5, price: 191.2, fee: 0.478, realized: 18.8395, net: 18.3615, leverage: 5 },
+      { t: 1760860799999, symbol: "SOL", side: "long", kind: "liquidation", orderType: "liquidation", qty: 7.5, price: 150.12345678, fee: 0, realized: null, net: -280.4627, leverage: 5 },
+    ],
+  ],
+  [
+    "negative zero is written without the sign",
+    [{ t: 1760846400000, symbol: "BTC", side: "short", kind: "close", orderType: "market", qty: -0.00000000001, price: 65000, fee: 0, realized: -0.000000001, net: -0.0000000004, leverage: 1 }],
+  ],
+];
+
 const R = "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92";
 const validMemos = [
   ["chartrunner:v1:cup:cup-2026.10:" + R + ":3", { kind: "cup", id: "cup-2026.10", root: R, count: 3 }],
@@ -161,6 +215,9 @@ const validMemos = [
   ["chartrunner:v1:backtest:bt-1:" + R + ":1", { kind: "backtest", id: "bt-1", root: R, count: 1 }],
   ["chartrunner:v1:dailyrun:2026-10-12:" + R + ":4", { kind: "dailyrun", id: "2026-10-12", root: R, count: 4 }],
   ["chartrunner:v1:dailyrace:2026-10-12:" + R + ":3", { kind: "dailyrace", id: "2026-10-12", root: R, count: 3 }],
+  ["chartrunner:v1:battle:2026-10-19T04:" + R + ":5", { kind: "battle", id: "2026-10-19T04", root: R, count: 5 }],
+  ["chartrunner:v1:battle:2026-10-19T20:" + R + ":10000", { kind: "battle", id: "2026-10-19T20", root: R, count: 10000 }],
+  ["chartrunner:v1:battle:2028-02-29T00:" + R + ":1", { kind: "battle", id: "2028-02-29T00", root: R, count: 1 }],
 ];
 const invalidMemos = [
   ["empty", ""],
@@ -185,6 +242,17 @@ const invalidMemos = [
   ["hyphenated kind", `chartrunner:v1:daily-run:2026-10-12:${R}:3`],
   ["kind with an underscore", `chartrunner:v1:daily_race:2026-10-12:${R}:3`],
   ["mixed-case new kind", `chartrunner:v1:dailyRun:2026-10-12:${R}:3`],
+  ["battle window hour not a multiple of 4", `chartrunner:v1:battle:2026-10-19T03:${R}:3`],
+  ["battle window hour 24", `chartrunner:v1:battle:2026-10-19T24:${R}:3`],
+  ["battle window on a date that does not exist", `chartrunner:v1:battle:2026-02-30T00:${R}:3`],
+  ["battle window on Feb 29 of a common year", `chartrunner:v1:battle:2026-02-29T00:${R}:3`],
+  ["battle window without the T", `chartrunner:v1:battle:2026-10-1904:${R}:3`],
+  ["battle window with only a date", `chartrunner:v1:battle:2026-10-19:${R}:3`],
+  ["battle window with a one-digit hour", `chartrunner:v1:battle:2026-10-19T4:${R}:3`],
+  ["battle window with a lowercase t", `chartrunner:v1:battle:2026-10-19t04:${R}:3`],
+  ["uppercase battle kind", `chartrunner:v1:BATTLE:2026-10-19T04:${R}:3`],
+  ["mixed-case battle kind", `chartrunner:v1:Battle:2026-10-19T04:${R}:3`],
+  ["battle anchor over 10000 leaves", `chartrunner:v1:battle:2026-10-19T04:${R}:10001`],
 ];
 
 // ---- spec section 10: legacy cr1 (read-only) ----
@@ -232,10 +300,21 @@ function rejects(rows) {
   }
 }
 
+// SPEC 2.2 / 7.5: a battle id is YYYY-MM-DDTHH, HH in 00 04 08 12 16 20, on a real date; at most 10000 leaves.
+function battleWindowOk(id) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(00|04|08|12|16|20)$/.exec(id);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (y < 1 || mo < 1 || mo > 12 || d < 1) return false;
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  return d <= [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+}
+
 function parseV1(text) {
   const m = /^chartrunner:v1:([a-z]+):([A-Za-z0-9._-]{1,64}):([0-9a-f]{64}):([1-9][0-9]{0,8})$/.exec(text);
   const k = m && KINDS.find((x) => x.kind === m[1]);
   if (!k || (k.count === "one" && m[4] !== "1")) return null;
+  if (k.kind === "battle" && (!battleWindowOk(m[2]) || Number(m[4]) > 10000)) return null;
   return { kind: m[1], id: m[2], root: m[3], count: Number(m[4]) };
 }
 
@@ -251,6 +330,7 @@ function build() {
   const boardLeaves = boardRows.map((r) => boardLeaf("daily", boardDate, r));
   const runLeaves = dailyRunRows.map((r) => dailyRunLeaf(dailyModesDate, r));
   const raceLeaves = dailyRaceRows.map((r) => dailyRaceLeaf(dailyModesDate, r));
+  const battleLeaves = battleStandings.map((s) => battleLeaf(battleWindow, s));
   const a = leafHash(canonical({ id: "a", s: 1 }));
   const b = leafHash(canonical({ id: "b", s: 2 }));
 
@@ -285,6 +365,10 @@ function build() {
     // Appended for the dailyrun / dailyrace kinds (SPEC 7.3, 7.4).
     dailyRun: { kind: "dailyrun", date: dailyModesDate, rows: dailyRunRows, leaves: runLeaves, ...withProofs(treeVector("dailyrun board leaves", "dailyrun", dailyModesDate, runLeaves)) },
     dailyRace: { kind: "dailyrace", date: dailyModesDate, rows: dailyRaceRows, leaves: raceLeaves, ...withProofs(treeVector("dailyrace board leaves", "dailyrace", dailyModesDate, raceLeaves)) },
+    // Appended for the battle kind (SPEC 7.5).
+    battle: { kind: "battle", window: battleWindow, standings: battleStandings, leaves: battleLeaves, ...withProofs(treeVector("battle leaves of one window", "battle", battleWindow, battleLeaves)) },
+    // Appended with the written-down `fh` definition (SPEC 7.2.1).
+    fillsHash: fillsCases.map(([name, fills]) => ({ name, fills, canonical: fillsText(fills), hash: shaHex(fillsText(fills)) })),
   };
 }
 
