@@ -359,6 +359,21 @@ describe("verifyAgainstMemo", () => {
     expect(await verifyAgainstMemo({ rows: [A, A], memoText: memo })).toMatchObject({ ok: false, reason: "rows_invalid" });
     expect(await verifyAgainstMemo({ memoText: memo } as never)).toMatchObject({ ok: false, reason: "input_invalid" });
   });
+  it("a row must be a plain object: an array, null or a class instance is rows_invalid / leaf_invalid, never hashed", async () => {
+    // Before this check an array row serialized as {"0":"a","1":1}, a Date as {}.
+    const notRows: unknown[] = [["a", 1], [], null, "row", 7, new Date(0), new Map([["a", 1]])];
+    for (const row of notRows) {
+      expect(() => serializeRow(row as never), String(row)).toThrow(/plain JSON object/);
+      await expect(merkleRoot([row as never])).rejects.toThrow();
+      expect(await verifyAgainstMemo({ rows: [row as never], memoText: memo })).toMatchObject({ ok: false, reason: "rows_invalid" });
+      expect(await verifyAgainstMemo({ leaf: row as never, proof: [], memoText: memo })).toMatchObject({ ok: false });
+    }
+    expect(await verifyAgainstMemo({ leaf: ["a", 1] as never, proof: [], memoText: memo })).toMatchObject({ ok: false, reason: "leaf_invalid" });
+    expect(await verifyAgainstMemo({ rows: [A, ["a", 1] as never], memoText: memo })).toMatchObject({ ok: false, reason: "rows_invalid" });
+    // A null-prototype object is still a plain row and serializes like a literal.
+    const bare = Object.assign(Object.create(null), { s: 1, id: "a" });
+    expect(serializeRow(bare)).toBe('{"id":"a","s":1}');
+  });
   it("can pin the memo to an expected kind and id", async () => {
     expect(await verifyAgainstMemo({ rows, memoText: memo, expect: { kind: "cup", id: "c1" } })).toMatchObject({ ok: true });
     expect(await verifyAgainstMemo({ rows, memoText: memo, expect: { id: "c2" } })).toMatchObject({ ok: false, reason: "memo_subject_mismatch" });

@@ -251,10 +251,35 @@ describe("checkEquivocation", () => {
     ]);
     expect(await checkEquivocation({ ...base, fetch: f })).toMatchObject({ ok: true, status: "unique", winner: { signature: sig(3) } });
   });
-  it("reads every transaction when the RPC does not report memos", async () => {
+  it("an RPC that does not report memos is scan_incomplete: no answer, and no read of every transaction", async () => {
     const { f, calls } = fakeRpc([{ signature: sig(1), slot: 10, memo: m("cup-1") }, { signature: sig(2), slot: 11, memo: m("cup-2") }], { omitMemoField: true });
-    expect(await checkEquivocation({ ...base, fetch: f })).toMatchObject({ ok: true, status: "unique" });
-    expect(calls.filter((c) => c.method === "getTransaction")).toHaveLength(2);
+    const r = await checkEquivocation({ ...base, fetch: f });
+    expect(r).toMatchObject({ ok: false, reason: "scan_incomplete" });
+    expect(!r.ok && r.message).toMatch(/did not report the memo of .* uniqueness was not checked/);
+    expect(calls.filter((c) => c.method === "getTransaction")).toHaveLength(0);
+  });
+  it("a memo field that is not a string or null is unknown too, even on one entry", async () => {
+    const txs = [{ signature: sig(1), slot: 10, memo: m("cup-1") }, { signature: sig(2), slot: 11, memo: null }];
+    const { f: good } = fakeRpc(txs);
+    const odd = (async (url: string, init: RequestInit) => {
+      const res = await good(url, init);
+      const body = await res.json();
+      if (JSON.parse(init.body as string).method === "getSignaturesForAddress" && body.result.length > 0) body.result[1].memo = 42;
+      return new Response(JSON.stringify(body));
+    }) as typeof fetch;
+    expect(await checkEquivocation({ ...base, fetch: odd })).toMatchObject({ ok: false, reason: "scan_incomplete" });
+  });
+  it("a failed transaction without a memo field is still skipped (it anchors nothing)", async () => {
+    const { f } = fakeRpc([{ signature: sig(1), slot: 10, memo: m("cup-1") }], {});
+    const failedNoMemo = (async (url: string, init: RequestInit) => {
+      const res = await f(url, init);
+      const body = await res.json();
+      if (JSON.parse(init.body as string).method === "getSignaturesForAddress" && !JSON.parse(init.body as string).params[1].before) {
+        body.result.unshift({ signature: sig(5), slot: 3, err: { InstructionError: [0, "x"] }, blockTime: null });
+      }
+      return new Response(JSON.stringify(body));
+    }) as typeof fetch;
+    expect(await checkEquivocation({ ...base, fetch: failedNoMemo })).toMatchObject({ ok: true, status: "unique" });
   });
   it("pages through the whole history", async () => {
     const txs = Array.from({ length: 7 }, (_, i) => ({ signature: sig(i + 1), slot: 100 + i, memo: i === 0 || i === 6 ? m("cup-1") : m("cup-9") }));

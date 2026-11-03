@@ -9,7 +9,8 @@ app uses for its own `/verify` page (<https://app.chartrunner.xyz/verify>); shar
 
 The format is specified in [SPEC.md](https://github.com/ChartRunner/chartrunner-onchain/blob/main/SPEC.md). This README is a usage guide; where the two differ, SPEC.md wins.
 
-Pure TypeScript, ESM, zero runtime dependencies. Uses WebCrypto (`crypto.subtle`), so it runs in browsers and in Node 20+.
+Pure TypeScript, ESM, zero runtime dependencies. Uses WebCrypto (`crypto.subtle`, Ed25519 for `verifySignature`) and
+`fetch`, so it runs in current browsers and in Node 20 or later (`engines.node` is `>=20`).
 
 ## What this proves, and what it does not
 
@@ -56,7 +57,14 @@ node     = sha256(0x01 || left || right)
 ```
 
 Leaves are sorted ascending by leaf hash, duplicates are rejected, and a lone node on a level is promoted unchanged.
-The leaf count is not hashed into the root; the memo carries it next to the root.
+The leaf count is not hashed into the root; the memo carries it next to the root. A full row set is checked against
+`count`; one row with a proof is bound to `count` only as an upper bound on the proof's length, so proof mode shows the
+row is in the committed set, not that the set is complete (SPEC section 8).
+
+A row must be a plain JSON object. `serializeRow`, `leafHash`, `merkleRoot` and `merkleProof` throw on an array, `null`,
+a primitive or a class instance such as a `Date` or `Map`, and `verifyAgainstMemo` reports `rows_invalid` (or
+`leaf_invalid` for a non-string `leaf`). Earlier builds serialized an array row as `{"0":...,"1":...}`; no anchor
+depends on that, because the app only ever anchors objects.
 
 A cup row (`cupLeaf`) is `{v:1, k:"cup", id, rank, u, h, eq, pct, tr, dq, fh}`: `u`/`h` are sha256 pseudonyms of the
 account and displayed name, `eq` the final equity and `pct` the return as fixed-decimal strings, `tr` the exits, `dq`
@@ -85,6 +93,15 @@ node packages/verify/dist/cli.js --help
 ```
 
 Once published it will install as `npm install @chartrunner/verify` (the package has no runtime dependencies).
+
+Publishing is manual and owner-only. The `Publish @chartrunner/verify` workflow
+(`.github/workflows/publish.yml`) runs when the owner publishes a GitHub release tagged `v<version>`, or when the owner
+dispatches it by hand (a dry run by default). It builds, tests, checks the vectors and runs
+`npm publish --provenance --access public` with the `NPM_TOKEN` repository secret, which only the owner sets.
+`prepublishOnly` refuses to publish when `LICENSE`, `NOTICE` or the built `dist/` is missing from the package
+directory (`node scripts/pack-files.mjs copy` puts the licence files in place; `prepack` does it too). CI packs the
+package on every pull request, installs the tarball in an empty project and runs the CLI and the offline example on
+Node 20 and 24.
 
 ## Node
 
@@ -140,20 +157,47 @@ chartrunner-verify --proof proof.json  --memo "<memo text>"      # one entry + p
 `{"leaf": "<canonical json>", "proof": [{"side": "L"|"R", "hash": "<hex>"}]}`. `--signer` is required with `--sig`: anyone can post a memo for any id, so a matching root only means something when the
 transaction was paid by the operator address ChartRunner publishes. Add `--kind`/`--id` to pin the memo
 to a snapshot and `--json` for machine output. `--verify-signature` checks the transaction's signatures locally (above).
+`--signer` must be a base58 address of 32 bytes; anything else is a usage error (exit `2`), so a typo is never reported
+as a mismatch. In a runtime without WebCrypto Ed25519, `--verify-signature` exits `2` with `signature_unverified`
+(the check was requested but not performed), never `0`. Instead of `--rpc` you can set `CHARTRUNNER_RPC_URL`, which
+keeps a URL with an API key out of your shell history; `--rpc` overrides it, and offline (`--memo`) runs ignore it.
 `--check-equivocation` scans the operator's finalized history for other anchors of the same kind/id (SPEC 2.5) and
 applies "first finalized operator memo wins" to the transaction checked: if another anchor has a different root or
 count, the checked one passes (with a loud warning) only if it has the same root and count as the first finalized, and
 is a mismatch (exit `1`) otherwise; a duplicate is a warning; a scan that cannot complete, or that completes without
-finding the checked transaction, is an error (exit `2`: the root matched, but uniqueness was not checked). `--max-signatures <n>` sets how much history to read (default 100000).
+finding the checked transaction, is an error (exit `2`: the root matched, but uniqueness was not checked). `--max-signatures <n>` sets how much history to read (default 100000); it takes plain decimal digits only, so `1e3`, `0x10`
+or `10.0` are usage errors.
 
-Exit codes: `0` verified, `1` mismatch (the data does not match the anchor, or the memo is not a valid anchor),
-`2` error (bad input, no RPC given, RPC outage, transaction not found, ...). An outage is never a pass.
+### Exit codes
+
+`0` verified. `1` the data does not match: the rows, the proof or the transaction contradict the anchor (tampering or
+a mismatch). `2` a usage or environment error, or a check that was not performed: nothing was compared, so there is no
+verdict either way. An outage is never a pass.
+
+| code | reason | why this code |
+| ---- | ------ | ------------- |
+| `1` | `root_mismatch`, `count_mismatch`, `proof_invalid` | the data you hold does not rebuild the anchored root or count (a proof longer than the count allows cannot belong to that tree) |
+| `1` | `memo_malformed`, `memo_subject_mismatch` | the memo is not a valid anchor, or is for another kind or id than you pinned |
+| `1` | `no_memo`, `multiple_memos`, `tx_failed`, `signer_mismatch` | the transaction is not a valid anchor: no single memo, failed on chain, or not signed as its kind requires |
+| `1` | `bad_signature`, `tx_mismatch` | with `--verify-signature`: the RPC served data that the signed transaction bytes contradict, a forged answer, so the data does not match |
+| `1` | `equivocation` | with `--check-equivocation`: the operator anchored this kind/id with another root or count first, so this anchor is void |
+| `2` | `rows_invalid`, `leaf_invalid`, `input_invalid` | your input cannot be committed or read (empty, duplicate rows, a float, an array as a row, ...): an input error, nothing was compared |
+| `2` | usage errors (no reason): unknown flag, missing `--rpc`/`CHARTRUNNER_RPC_URL` or `--signer`, a `--signer` that is not a 32-byte base58 address, a bad `--max-signatures` | fix the command line |
+| `2` | `rpc_url_invalid`, `signature_invalid` | the URL or transaction signature you gave is malformed |
+| `2` | `rpc_unreachable`, `rpc_error`, `tx_not_found`, `meta_missing`, `signature_mismatch`, `tx_undecodable` | the RPC could not give a usable answer (outage, pruned history, a different transaction than asked for, bytes that do not decode); nothing proves the anchor right or wrong |
+| `2` | `signature_unverified` | `--verify-signature` was requested, but this runtime has no Ed25519, so it was not performed |
+| `2` | `equivocation_unchecked` | the root matched, but the equivocation scan could not complete or did not find this transaction: uniqueness was not checked |
+
+`signature_mismatch` stays `2` while `tx_mismatch` is `1`: the first is an RPC returning some other transaction, which
+says nothing about this anchor; the second is the RPC's description of this transaction contradicted by its own signed
+bytes.
 
 The offline `--memo` text is used exactly as given (no trimming).
 
 From a checkout: `node packages/verify/dist/cli.js ...` after `pnpm build`, or `node packages/verify/bin/chartrunner-verify.mjs ...`,
-which runs the TypeScript source directly (Node 22.18+ strips the types on the fly; `engines.node` is `>=22.18`). The
-built library itself only needs a runtime with WebCrypto and `fetch` (Node 20+ or a current browser).
+which runs the TypeScript source directly on a Node that strips types (22.18 or later) and the built `dist/` otherwise.
+The package needs only a runtime with global WebCrypto and `fetch`: Node 20 or later (`engines.node` is `>=20`; Node 18
+has no global `crypto`), or a current browser. Building and testing this repository needs Node 24 (`.node-version`).
 
 ## API
 
@@ -184,7 +228,11 @@ Failure reasons from `verifyAgainstMemo`: `memo_malformed`, `memo_subject_mismat
 `proof_invalid`, `root_mismatch`, `count_mismatch`, `input_invalid`. From the RPC helpers: `rpc_url_invalid`,
 `signature_invalid`, `signature_mismatch`, `meta_missing`, `rpc_unreachable`, `rpc_error`, `tx_not_found`, `tx_failed`, `no_memo`, `multiple_memos`,
 `signer_mismatch`, and with `verifySignature`: `tx_undecodable`, `bad_signature`, `tx_mismatch`. From `checkEquivocation`: `input_invalid`, `rpc_url_invalid`, `rpc_unreachable`, `rpc_error`,
-`scan_incomplete` (never answered with `none` or `unique` from a partial history).
+`scan_incomplete` (never answered with `none` or `unique` from a partial history). `checkEquivocation` also returns
+`scan_incomplete` when the RPC's `getSignaturesForAddress` entries leave out the `memo` field (or report something
+other than a string or `null`): without it the scan cannot tell which transactions to read, and reading every one would
+cost up to `maxSignatures` requests. Earlier builds read every such transaction one by one; use an RPC that reports
+memos (standard Solana RPC nodes do).
 
 ## Development
 

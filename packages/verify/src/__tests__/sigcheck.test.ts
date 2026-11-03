@@ -191,6 +191,28 @@ describe("CLI --verify-signature and --check-equivocation", async () => {
     expect(await s.run("--check-equivocation", "--max-signatures", "0")).toBe(2);
     expect(await s.run("--max-signatures", "10")).toBe(2);
   });
+  it("--max-signatures accepts plain decimal digits only (not 1e3, 0x10, 10.0, +10, a space or a leading zero)", async () => {
+    const memo = formatMemo({ kind: "cup", id: "c1", root, count });
+    const s = await setup([{ memo, slot: 50, self: true }]);
+    for (const bad of ["1e3", "0x10", "10.0", "+10", " 10", "010", "-1", "9007199254740993"]) {
+      expect(await s.run("--check-equivocation", "--max-signatures", bad), bad).toBe(2);
+    }
+    expect(s.err.join("\n")).toMatch(/--max-signatures must be a positive decimal integer/);
+    expect(await s.run("--check-equivocation", "--max-signatures", "1000")).toBe(0);
+  });
+  it("--verify-signature without Ed25519 in this runtime: exit 2 (check not performed), never 0", async () => {
+    const memo = formatMemo({ kind: "cup", id: "c1", root, count });
+    const s = await setup([{ memo, slot: 50, self: true }]);
+    const real = globalThis.crypto;
+    // SHA-256 still works (the Merkle root needs it); only Ed25519 is missing.
+    const noEd = { digest: (alg: AlgorithmIdentifier, data: BufferSource) => real.subtle.digest(alg, data), generateKey: () => Promise.reject(new DOMException("nope", "NotSupportedError")) };
+    vi.stubGlobal("crypto", { subtle: noEd, getRandomValues: real.getRandomValues.bind(real) });
+    expect(await s.run("--verify-signature")).toBe(2);
+    expect(s.err.join("\n")).toMatch(/ERROR {2}signature_unverified: .*signatures were NOT checked/);
+    expect(s.out).toEqual([]);
+    vi.stubGlobal("crypto", real);
+    expect(await s.run()).toBe(0); // without --verify-signature the RPC's answer is used, as documented
+  });
   it("a same-root duplicate of the first anchor passes even when a later anchor equivocates", async () => {
     const memo = formatMemo({ kind: "cup", id: "c1", root, count });
     const s = await setup([{ memo, slot: 50, self: true }, { memo, slot: 40 }, { memo: formatMemo({ kind: "cup", id: "c1", root: "f".repeat(64), count }), slot: 60 }]);

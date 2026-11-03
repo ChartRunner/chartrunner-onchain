@@ -20,7 +20,7 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=22.18"
+    "node": ">=20"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -41,14 +41,19 @@
     "LICENSE",
     "NOTICE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "node scripts/pack-files.mjs clean && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepack": "pnpm run build && cp ../../LICENSE ../../NOTICE ."
+    "prepack": "npm run build && node scripts/pack-files.mjs copy",
+    "prepublishOnly": "node scripts/pack-files.mjs check"
   },
   "devDependencies": {
-    "@types/node": "^24",
+    "@types/node": "24.19.1",
     "typescript": "5.9.3",
     "vitest": "5.0.3"
   }

@@ -62,6 +62,9 @@ export async function sha256Hex(text: string): Promise<string> {
 
 /** Canonical JSON: keys sorted by UTF-16 code unit, no whitespace, integers/strings/booleans/null only. */
 export function canonicalJson(entry: LeafEntry): string {
+  // A row is a flat JSON object (SPEC section 3). An array would otherwise serialize as {"0":...,"1":...}, and a class
+  // instance (Date, Map, ...) as its own enumerable keys; neither is a row.
+  if (!isPlainObject(entry)) throw new Error("a row must be a plain JSON object (not an array, null or a class instance)");
   const keys = Object.keys(entry).sort();
   const parts = keys.map((k) => {
     const v = entry[k];
@@ -70,6 +73,12 @@ export function canonicalJson(entry: LeafEntry): string {
     return `${JSON.stringify(k)}:${JSON.stringify(v)}`;
   });
   return `{${parts.join(",")}}`;
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
 }
 
 const LEAF_PREFIX = new Uint8Array([0x00]);
