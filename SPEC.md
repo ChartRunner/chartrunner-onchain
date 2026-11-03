@@ -12,7 +12,8 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 ## 1. Overview
 
-ChartRunner commits to a frozen result set (one Trading Cup, or one UTC day of a leaderboard) by writing a single
+ChartRunner commits to a frozen result set (one Trading Cup, one UTC day of a leaderboard, or the battles frozen in one
+4-hour UTC window) by writing a single
 line of text to Solana with the SPL Memo program:
 
 ```
@@ -39,7 +40,9 @@ string, with no trimming or normalization of any kind:
 ```
 
 and the first group MUST be one of the kinds in the registry (2.2). For a kind whose count rule is "one" (every user
-kind), the count MUST be exactly `1`.
+kind), the count MUST be exactly `1`. For `battle`, the id MUST be a battle window (2.2: `YYYY-MM-DDTHH` on a real
+date, `HH` one of `00`, `04`, `08`, `12`, `16`, `20`) and the count MUST NOT exceed `10000`. No other kind has a rule
+beyond the shared grammar, so these rules change the meaning of no memo of an earlier kind.
 
 | field   | rule |
 | ------- | ---- |
@@ -51,9 +54,12 @@ kind), the count MUST be exactly `1`.
 
 A parser MUST reject anything else, including: leading or trailing whitespace or newline, an uppercase kind or root,
 a shorter or longer root, a count of `0`, a count with a leading zero, a count of ten or more digits, a count other than
-`1` for a user kind, an empty or over-long id, an id containing `:` or a space, extra or missing fields, any version
-other than `v1`, and any other prefix. The longest valid memo is 164 bytes (a 9-character kind such as `dailyrace`, a
-64-character id and a 9-digit count); before `dailyrace` was registered it was 163.
+`1` for a user kind, an empty or over-long id, an id containing `:` or a space, a `battle` id that is not a battle
+window (an hour outside the six, a date that does not exist, a missing or lowercase `T`) or a `battle` count over
+`10000`, extra or missing fields, any version other than `v1`, and any other prefix. The longest valid memo is 164 bytes
+(a 9-character kind such as `dailyrace`, a 64-character id and a 9-digit count); before `dailyrace` was registered it
+was 163. A `battle` memo is at most 106 bytes (a 13-character id and a count of at most 5 digits), so registering
+`battle` leaves the maximum at 164. A battle window's characters (`0-9`, `-`, `T`) are all in the id alphabet.
 
 A writer MUST only emit text that this parser accepts and that formats back to the same text (the reference operator
 code parses the memo, re-formats it, and refuses to sign unless the two are identical).
@@ -79,6 +85,7 @@ Signer models:
 | `cup`      | operator | the cup id          | cup leaf (7.2): one per final standing                               | any   | active |
 | `dailyrun` | operator | `YYYY-MM-DD` (UTC)  | Daily Run leaf (7.3): best Daily Run per player on that day's chart  | any   | active |
 | `dailyrace`| operator | `YYYY-MM-DD` (UTC)  | Daily Race leaf (7.4): best arrived Daily Race per player that day   | any   | active |
+| `battle`   | operator | `YYYY-MM-DDTHH` (UTC 4-hour window, `HH` in `00 04 08 12 16 20`) | battle leaf (7.5): one per final standing of every battle frozen in that window | any, at most 10000 | active |
 | `xp`       | operator | not defined yet     | XP ledger daily totals, schema not defined yet                       | any   | reserved |
 | `map`      | user     | opaque entity id    | one entity leaf, schema not defined yet                              | 1     | planned |
 | `strategy` | user     | opaque entity id    | one entity leaf, schema not defined yet                              | 1     | planned |
@@ -97,6 +104,16 @@ chart is played in one mode, `run` or `race`, or, for runs from before the modes
 without a mode (the board from before the modes), `dailyrun` the Daily Run board and `dailyrace` the Daily Race
 board. The three never share a run, and the same date can be anchored under all three. Kind names follow the memo
 grammar (`[a-z]+`): no separator, so `dailyrun`, not `daily-run` or `daily_run`.
+
+A battle window is the 4-hour UTC interval `[HH:00, HH+4:00)` of its date: `2026-10-19T04` is 04:00:00.000 up to, not
+including, 08:00 UTC on 2026-10-19, and `2026-10-19T20` ends at 00:00 UTC on 2026-10-20. The id is valid only when the
+date exists in the Gregorian calendar (year `0001` to `9999`, leap years included) and `HH` is one of the six window
+starts; the separator is an uppercase `T`, and there are no minutes, seconds or zone suffix. A battle belongs to the
+window in which its results were frozen, wherever it started. One anchor covers every battle frozen in that window,
+with one leaf per final standing, and is written only after the window has ended. A window in which no battle was
+frozen is not anchored (there is no anchor of zero rows, section 4). A `battle` anchor carries at most 10000 leaves.
+How a window with more standings than that would be split is not defined in v1; such a window cannot be anchored
+under `battle` until a later revision of this document defines it.
 
 The pair (`kind`, `id`) names the snapshot. Verifiers SHOULD pin both (the reference verifier's `expect` option and the
 CLI's `--kind` / `--id`) so that a valid memo for one snapshot cannot be presented as the anchor of another.
@@ -272,7 +289,7 @@ a data export can be checked cheaply. It is not on chain and not part of the anc
   proof of their own row from a snapshot of `count` rows was left out, publicly.
 
 The memo grammar allows up to 999999999. The reference operator caps a snapshot at 10000 leaves; that cap is an
-operating limit, not part of the format.
+operating limit, not part of the format, except for `battle`, whose kind rule (2.1, 2.2) makes 10000 the maximum count.
 
 ## 6. Proofs and offline verification
 
@@ -408,7 +425,37 @@ lowest run id). A race that timed out or died is stored but never ranked, so it 
 race collects no coins, so its score carries no information, and every leaf on this board is an arrived race, so there
 is no `fin` key either.
 
-### 7.5 All leaf schemas
+### 7.5 Battle leaf (`battle`)
+
+```json
+{"b":"<battle uuid>","eq":"10842.120000","fh":"<hex>","fin":false,"h":"<hex>","id":"2026-10-19T04","k":"battle","out":false,"pct":"8.4212","rank":1,"tr":8,"u":"<hex>","v":1}
+```
+
+The keys above are in canonical order (section 3); a battle leaf has exactly these thirteen keys.
+
+| key    | value | why it is in the leaf |
+| ------ | ----- | --------------------- |
+| `v`    | `1` | leaf schema version |
+| `k`    | `"battle"` | binds the leaf to this kind |
+| `id`   | the battle window, equal to the memo `id` (2.2) | binds the leaf to its window |
+| `b`    | the battle's id, a lowercase UUID (`8-4-4-4-12` lowercase hex digits with `-`) | one window holds many battles; binds the standing to its battle. The battle's join code is private and never appears in a leaf |
+| `rank` | the standing's rank in the battle's frozen results (integer, 1 or more) | the position the battle's results show |
+| `u`    | user pseudonym of the account (7, as in 7.2) | lets a player find their own leaf without the raw id |
+| `h`    | handle pseudonym of the displayed name (7, as in 7.2) | lets a player look up a leaf by name |
+| `eq`   | final equity: a decimal string with exactly 6 decimals, no sign, no leading zeros (`0.000000` or more) | the final balance the results show |
+| `pct`  | return in percent: a decimal string with exactly 4 decimals, `-` when negative and no sign otherwise, no leading zeros, never `-0.0000` (written as in the cup vectors: `"-50.0000"`, `"1.0000"`) | the return the results show |
+| `tr`   | number of exits (integer, 0 or more) | as `tr` in 7.2 |
+| `out`  | `true` when the player was knocked out (Last Man Standing) (boolean) | knock-out decides a Last Man Standing battle |
+| `fin`  | `true` when the player reached the target (Profit Race) (boolean) | reaching the target decides a Profit Race battle |
+| `fh`   | `fillsHash` of the standing, 64 lowercase hex: defined exactly as the cup leaf's `fh` (7.2): the same hash of the player's validated fills, computed the same way | commits the standing to its fills (section 8) |
+
+One leaf per final standing of each battle whose results were frozen in the window, built from the battle's frozen
+results only (never from live data). A player who played two battles in one window has two leaves; they differ in `b`.
+Numbers are integers and money and percentages are strings, because the format has no floats (section 3). A writer
+MUST NOT anchor a leaf outside this table (the reference `battleLeaf` refuses one, `battleLeafProblem` names the first
+violation); a verifier rebuilding a root needs no such check, because any other leaf yields a different root.
+
+### 7.6 All leaf schemas
 
 Because every leaf schema in this section includes its kind and id (`k` and `d`, or `k` and `id`), a leaf from one
 snapshot does not hash the same as a leaf from another.
@@ -430,13 +477,17 @@ It does not prove:
 - **Fair play or fair fills.** The anchor proves the published standings were not changed after anchoring. It does not
   prove the game server's rules, prices, fills or scoring were correct beyond what the server checked before it
   anchored. A self-consistent but wrong snapshot anchors and verifies like a correct one.
-- **The fills themselves.** `fh` commits each cup standing to a hash of its fills, so a published fills list can be
-  checked for consistency with the standing. That is a consistency check, not proof of fair execution.
+- **The fills themselves.** `fh` commits each cup standing (7.2) and each battle standing (7.5) to a hash of its fills,
+  so a published fills list can be checked for consistency with the standing. That is a consistency check, not proof of
+  fair execution.
 - **The cup results document as a whole.** The app also publishes `results_hash`, the SHA-256 of a cup's canonical
   results text. That hash is not on chain. Fields of the results document that are not in the cup leaf (section 7.2)
   are not covered by the anchor. In particular, the `final` block of a final-stage cup (`qualifierId`, the
   `finalists` in seed order, `pickedByHost`) is covered by `results_hash` but **not** by the Merkle anchor, whose leaves
   are the standings only.
+- **A battle's results as a whole.** A battle leaf covers only the fields in 7.5. Anything else about a battle (its
+  join code, its players' settings, its rules or target) is not covered by the anchor, and the battle's join code is
+  never published by it.
 - **Completeness by itself.** The root does not stop the operator from leaving a player out before anchoring. The
   on-chain count makes the number of entries public, and an excluded player can show they have no proof (section 5).
 - **Who the operator is.** The verifier checks the fee payer against an address you supply. Take it from section 2.6
@@ -446,7 +497,8 @@ It does not prove:
 - **Anything about a source you do not trust.** If the memo text, the signature or the RPC come from an untrusted
   source, so does the answer. Use your own RPC or an explorer you trust.
 - **Privacy.** Pseudonyms hide raw ids, but a handle is public, so anyone can test whether a known handle matches `h`.
-- **Late data.** A run submitted after its day was anchored is not in that day's snapshot.
+- **Late data.** A run submitted after its day was anchored is not in that day's snapshot. A battle is in the window
+  its results were frozen in, never in the window it started in.
 
 ## 9. Versioning policy
 
@@ -471,6 +523,7 @@ It does not prove:
 | ---------- | ------ |
 | 2026-10-06 | first mainnet anchors; format v1 frozen with `freeplay`, `daily`, `cup` (active), `xp` (reserved), `map`, `strategy`, `bot`, `backtest` (planned) |
 | 2026-10-13 | `dailyrun` and `dailyrace` added: operator kinds, id the UTC date, count the number of leaves, leaves 7.3 and 7.4. Vectors appended (`dailyRun`, `dailyRace`, two valid and three invalid memos). No existing vector, hash or kind changed |
+| 2026-11-03 | `battle` added: operator kind, id the 4-hour UTC window `YYYY-MM-DDTHH` (`HH` in `00 04 08 12 16 20`, a real date), count the number of leaves, at most 10000, leaf 7.5 (the former 7.5 is now 7.6). Vectors appended (`battle`, three valid and eleven invalid memos). No existing vector, hash or kind changed; the longest valid memo stays 164 bytes |
 
 ## 10. Legacy: the `cr1:` memo format
 
@@ -511,11 +564,11 @@ memo is never a `chartrunner:v1` anchor: `parseMemo` rejects it, and `verifyAgai
 | concern | `packages/verify/src` |
 | ------- | --------------------- |
 | canonical JSON, leaf/node hashing, tree, proofs, memo grammar | `merkle.ts` |
-| pseudonyms, board, Daily Run, Daily Race and cup leaf schemas, ranking | `leaves.ts` |
+| pseudonyms, board, Daily Run, Daily Race, cup and battle leaf schemas, ranking | `leaves.ts` |
 | offline verification and failure reasons | `verify.ts` |
 | reading an anchor transaction over JSON-RPC, the rules in 2.4 | `rpc.ts` |
 | wire-transaction decoding and local Ed25519 signature check (2.4 rule 10) | `sigcheck.ts` |
 | command-line verifier and exit codes | `cli.ts` |
-| kinds registry, signer models, id grammar | `kinds.ts` |
+| kinds registry, signer models, id grammar, per-kind memo rules (battle window) | `kinds.ts` |
 | equivocation scan (2.5) | `equivocation.ts` |
 | legacy `cr1:` parser (section 10) | `legacy.ts` |

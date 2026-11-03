@@ -3,13 +3,18 @@ import { describe, expect, it } from "vitest";
 import * as legacy from "./legacy-merkle";
 import * as legacyLeaves from "./legacy-leaves";
 import {
+  battleLeaf,
+  battleLeafProblem,
   boardLeaf,
   cupLeaf,
   cupLeavesFromStandings,
   dailyRaceLeaf,
   dailyRunLeaf,
   formatMemo,
+  isBattleLeaf,
+  isBattleWindowId,
   leafHash,
+  MAX_BATTLE_LEAVES,
   memoText,
   merkleProof,
   merkleRoot,
@@ -159,6 +164,99 @@ describe("memo format", () => {
     expect(() => formatMemo({ kind: "cup", id: "a:b", root, count: 1 })).toThrow();
     expect(() => formatMemo({ kind: "cup", id: "x", root: "abc", count: 1 })).toThrow();
     expect(() => formatMemo({ kind: "cup", id: "x", root, count: 0 })).toThrow();
+  });
+});
+
+describe("battle kind (SPEC 2.2, 7.5)", () => {
+  const W = "2026-10-19T04";
+  const row = { battleId: "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f", rank: 1, userId: "u", name: "Al", equity: "10842.120000", pnlPct: "8.4212", trades: 8, out: false, finished: false, fillsHash: "a".repeat(64) };
+
+  it("window ids: a real UTC date and HH in 00, 04, 08, 12, 16, 20, nothing else", () => {
+    for (const h of ["00", "04", "08", "12", "16", "20"]) expect(isBattleWindowId(`2026-10-19T${h}`)).toBe(true);
+    for (const id of ["2028-02-29T00", "2000-02-29T20", "2026-12-31T20", "0001-01-01T00", "9999-12-31T20"]) expect(isBattleWindowId(id), id).toBe(true);
+    const bad = [
+      "2026-10-19T03", "2026-10-19T24", "2026-10-19T4", "2026-10-19T004", "2026-10-19t04", "2026-10-19 04", "2026-10-1904",
+      "2026-10-19", "2026-10-19T04:00", "2026-10-19T04Z", " 2026-10-19T04", "2026-10-19T04\n", "2026-02-30T00", "2026-02-29T00",
+      "1900-02-29T00", "2026-04-31T00", "2026-13-01T00", "2026-00-10T00", "2026-10-00T00", "0000-01-01T00", "26-10-19T04",
+      "2026-10-19T04+00", "\uff12\uff10\uff12\uff16-10-19T04", "",
+    ];
+    for (const id of bad) expect(isBattleWindowId(id), JSON.stringify(id)).toBe(false);
+    expect(isBattleWindowId(undefined)).toBe(false);
+    expect(isBattleWindowId(2026)).toBe(false);
+  });
+  it("the memo grammar applies the window rule and the 10000-leaf cap to battle only", () => {
+    const ok = formatMemo({ kind: "battle", id: W, root: ROOT_3, count: MAX_BATTLE_LEAVES });
+    expect(parseMemo(ok)).toEqual({ kind: "battle", id: W, root: ROOT_3, count: 10000 });
+    expect(parseMemoStrict(ok).ok).toBe(true);
+    expect(() => formatMemo({ kind: "battle", id: W, root: ROOT_3, count: 10001 })).toThrow();
+    expect(() => formatMemo({ kind: "battle", id: "2026-10-19T03", root: ROOT_3, count: 1 })).toThrow();
+    for (const text of [`chartrunner:v1:battle:2026-10-19T03:${ROOT_3}:1`, `chartrunner:v1:battle:${W}:${ROOT_3}:10001`, `chartrunner:v1:battle:cup-1:${ROOT_3}:1`]) {
+      expect(parseMemo(text)).toBeNull();
+      expect(parseMemoStrict(text)).toMatchObject({ ok: false, reason: "malformed" });
+    }
+    // Other kinds keep the shared id grammar and the 9-digit count: nothing registered earlier changes meaning.
+    expect(parseMemo(`chartrunner:v1:cup:2026-10-19T03:${ROOT_3}:10001`)).toEqual({ kind: "cup", id: "2026-10-19T03", root: ROOT_3, count: 10001 });
+    // The longest valid memo is still 164 bytes (9-character kind, 64-character id, 9-digit count); a battle memo is at most 106 (count <= 10000).
+    expect(new TextEncoder().encode(formatMemo({ kind: "dailyrace", id: "a".repeat(64), root: ROOT_3, count: 999999999 })).length).toBe(164);
+    expect(new TextEncoder().encode(ok).length).toBe(106);
+  });
+  it("builds the leaf in canonical key order", async () => {
+    const leaf = await battleLeaf(W, row);
+    expect(serializeRow(leaf)).toBe(`{"b":"${row.battleId}","eq":"10842.120000","fh":"${"a".repeat(64)}","fin":false,"h":"${leaf.h}","id":"${W}","k":"battle","out":false,"pct":"8.4212","rank":1,"tr":8,"u":"${leaf.u}","v":1}`);
+    // u / h are derived exactly as in a cup leaf.
+    const cup = await cupLeaf("c", { rank: 1, userId: "u", name: "Al", equity: "1.000000", pnlPct: "0.0000", trades: 0, disqualified: false, fillsHash: "a".repeat(64) });
+    expect([leaf.u, leaf.h]).toEqual([cup.u, cup.h]);
+    expect(isBattleLeaf(leaf, W)).toBe(true);
+    expect(battleLeafProblem(leaf, "2026-10-19T08")).toMatch(/window/);
+  });
+  it("refuses every input outside the schema", async () => {
+    const bad: [string, Partial<typeof row> | Record<string, unknown>][] = [
+      ["uppercase uuid", { battleId: row.battleId.toUpperCase() }],
+      ["battle code instead of uuid", { battleId: "K7QX2M" }],
+      ["uuid without dashes", { battleId: row.battleId.replaceAll("-", "") }],
+      ["rank 0", { rank: 0 }],
+      ["negative rank", { rank: -1 }],
+      ["float rank", { rank: 1.5 }],
+      ["string rank", { rank: "1" }],
+      ["negative trades", { trades: -1 }],
+      ["float trades", { trades: 0.5 }],
+      ["unsafe trades", { trades: 2 ** 53 }],
+      ["equity with 2 decimals", { equity: "10842.12" }],
+      ["equity with 7 decimals", { equity: "10842.1200000" }],
+      ["negative equity", { equity: "-1.000000" }],
+      ["equity with a leading zero", { equity: "010842.120000" }],
+      ["equity without integer part", { equity: ".120000" }],
+      ["equity as a number", { equity: 10842.12 }],
+      ["pct with 2 decimals", { pnlPct: "8.42" }],
+      ["pct with a plus sign", { pnlPct: "+8.4212" }],
+      ["negative zero pct", { pnlPct: "-0.0000" }],
+      ["pct with a leading zero", { pnlPct: "08.4212" }],
+      ["pct with exponent", { pnlPct: "8.4212e0" }],
+      ["out as a string", { out: "false" }],
+      ["fin as a number", { finished: 0 }],
+      ["short fills hash", { fillsHash: "a".repeat(63) }],
+      ["uppercase fills hash", { fillsHash: "A".repeat(64) }],
+      ["empty user id", { userId: "" }],
+      ["missing name", { name: undefined }],
+    ];
+    for (const [name, patch] of bad) await expect(battleLeaf(W, { ...row, ...patch } as typeof row), name).rejects.toThrow(/invalid battle leaf/);
+    for (const w of ["2026-10-19T03", "2026-02-30T00", "2026-10-19"]) await expect(battleLeaf(w, row), w).rejects.toThrow(/invalid battle leaf/);
+    // Signed decimals are written like the cup vectors: "-" when negative, none when positive or zero.
+    for (const pnlPct of ["-2.6850", "-100.0000", "0.0000", "1250.5000"]) expect((await battleLeaf(W, { ...row, pnlPct })).pct).toBe(pnlPct);
+  });
+  it("the validator rejects extra, missing or mistyped keys of a built leaf", async () => {
+    const leaf = await battleLeaf(W, row);
+    expect(battleLeafProblem(leaf)).toBeNull();
+    expect(battleLeafProblem({ ...leaf, code: "K7QX2M" })).toMatch(/exactly the keys/);
+    const { fh: _fh, ...noFh } = leaf;
+    void _fh;
+    expect(battleLeafProblem(noFh)).toMatch(/exactly the keys/);
+    expect(battleLeafProblem({ ...leaf, v: 2 })).toMatch(/^v /);
+    expect(battleLeafProblem({ ...leaf, k: "cup" })).toMatch(/^k /);
+    expect(battleLeafProblem({ ...leaf, u: "x" })).toMatch(/^u /);
+    expect(battleLeafProblem({ ...leaf, h: null })).toMatch(/^h /);
+    expect(battleLeafProblem(null)).not.toBeNull();
+    expect(battleLeafProblem([leaf])).not.toBeNull();
   });
 });
 

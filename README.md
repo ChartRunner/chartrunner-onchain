@@ -2,8 +2,9 @@
 
 The specification and reference verifier for ChartRunner's on-chain result anchors.
 
-ChartRunner writes one line to Solana for every frozen Trading Cup and every closed leaderboard day (free play, and the
-Daily Run, Daily Race and pre-modes boards of the daily chart):
+ChartRunner writes one line to Solana for every frozen Trading Cup, every closed leaderboard day (free play, and the
+Daily Run, Daily Race and pre-modes boards of the daily chart) and, for battles, every 4-hour UTC window in which at
+least one battle was frozen:
 
 ```
 chartrunner:v1:<kind>:<id>:<merkle root>:<row count>
@@ -41,6 +42,9 @@ What is live on mainnet today:
   address `68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy` ([SPEC.md section 2.6](SPEC.md#26-operator-addresses)).
   35 anchors (27 cups, 6 free-play boards, 1 daily board, 1 Daily Race board) were posted between 2026-10-06 and
   2026-10-15. The full list is at <https://app.chartrunner.xyz/api/anchors?limit=100>.
+- Battles have their own kind, `battle` (id the 4-hour UTC window `YYYY-MM-DDTHH`, one leaf per final standing of every
+  battle frozen in it), specified in [SPEC.md section 7.5](SPEC.md#75-battle-leaf-battle). Its first anchor follows the
+  app release that writes it.
 - The app's `/verify` page runs the library in this repository in the browser.
 
 Check a real cup yourself in about a minute (Node 24, pnpm 11, any mainnet RPC):

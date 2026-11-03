@@ -12,7 +12,7 @@ import {
   type MemoFields,
   type ProofStep,
 } from "./merkle.ts";
-import { ANCHOR_KINDS, KINDS, isKind, type AnchorKind } from "./kinds.ts";
+import { ANCHOR_KINDS, isKind, kindRuleViolation, type AnchorKind } from "./kinds.ts";
 
 // The SDK surface: friendly names over the format-v1 primitives in merkle.ts / leaves.ts (which are the same code the
 // ChartRunner app runs). Nothing here changes hashing or serialization.
@@ -38,7 +38,9 @@ export function parseMemoStrict(text: string): MemoParseResult {
   if (memo) return { ok: true, memo };
   const kind = text.split(":")[2];
   if (kind !== undefined && /^[a-z]+$/.test(kind) && !(ANCHOR_KINDS as readonly string[]).includes(kind)) return { ok: false, reason: "unknown_kind", message: `Unknown anchor kind "${kind}".` };
-  if (isKind(kind) && KINDS[kind].count === "one" && /^chartrunner:v1:[a-z]+:[A-Za-z0-9._-]{1,64}:[0-9a-f]{64}:[1-9][0-9]{0,8}$/.test(text)) return { ok: false, reason: "malformed", message: `Kind "${kind}" anchors a single leaf, so its count must be 1.` };
+  const m = /^chartrunner:v1:([a-z]+):([A-Za-z0-9._-]{1,64}):[0-9a-f]{64}:([1-9][0-9]{0,8})$/.exec(text);
+  const rule = m && isKind(m[1]) ? kindRuleViolation(m[1], m[2]!, Number(m[3])) : null;
+  if (rule) return { ok: false, reason: "malformed", message: rule };
   return { ok: false, reason: "malformed", message: "Memo does not match chartrunner:v1:<kind>:<id>:<64-hex root>:<count>." };
 }
 

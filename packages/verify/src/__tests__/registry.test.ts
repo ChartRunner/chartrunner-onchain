@@ -37,9 +37,13 @@ describe("kinds registry", () => {
     for (const k of OPERATOR_KINDS) expect(KINDS[k]).toMatchObject({ signer: "operator", count: "any" });
     for (const k of USER_KINDS) expect(KINDS[k]).toMatchObject({ signer: "user", status: "planned", count: "one" });
     expect(KINDS.xp.status).toBe("reserved");
-    expect(["freeplay", "daily", "cup", "dailyrun", "dailyrace"].map((k) => kindInfo(k)?.status)).toEqual(["active", "active", "active", "active", "active"]);
+    expect(ANCHOR_KINDS.slice(0, 10)).toEqual(["freeplay", "daily", "cup", "xp", "map", "strategy", "bot", "backtest", "dailyrun", "dailyrace"]);
+    expect(ANCHOR_KINDS.at(-1)).toBe("battle");
+    expect(OPERATOR_KINDS.at(-1)).toBe("battle");
+    expect(["freeplay", "daily", "cup", "dailyrun", "dailyrace", "battle"].map((k) => kindInfo(k)?.status)).toEqual(["active", "active", "active", "active", "active", "active"]);
     expect(kindInfo("dailyrun")).toMatchObject({ signer: "operator", count: "any", id: "UTC date YYYY-MM-DD" });
     expect(kindInfo("dailyrace")).toMatchObject({ signer: "operator", count: "any", id: "UTC date YYYY-MM-DD" });
+    expect(kindInfo("battle")).toMatchObject({ signer: "operator", status: "active", count: "any", leaf: "battle leaf (SPEC 7.5)" });
   });
   it("is frozen", () => {
     expect(Object.isFrozen(KINDS)).toBe(true);
@@ -55,6 +59,10 @@ describe("kinds registry", () => {
     expect(isOperatorKind("dailyrun")).toBe(true);
     expect(isOperatorKind("dailyrace")).toBe(true);
     expect(kindInfo("daily-run")).toBeNull();
+    expect(isOperatorKind("battle")).toBe(true);
+    expect(isUserKind("battle")).toBe(false);
+    expect(kindInfo("Battle")).toBeNull();
+    expect(kindInfo("battles")).toBeNull();
     expect(kindInfo("nope")).toBeNull();
     expect(kindInfo("__proto__")).toBeNull();
   });

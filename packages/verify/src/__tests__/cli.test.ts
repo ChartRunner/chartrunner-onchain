@@ -3,7 +3,7 @@ import { copyFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cupLeavesFromStandings, dailyRaceLeaf, dailyRunLeaf, formatMemo, merkleProof, merkleRoot } from "../index.ts";
+import { battleLeaf, cupLeavesFromStandings, dailyRaceLeaf, dailyRunLeaf, formatMemo, merkleProof, merkleRoot } from "../index.ts";
 import { exitCodeFor } from "../cli.ts";
 
 const bin = new URL("../../bin/chartrunner-verify.mjs", import.meta.url).pathname;
@@ -50,6 +50,21 @@ describe("chartrunner-verify CLI", async () => {
       expect(run("--rows", f, "--memo", text, "--kind", kind, "--id", date).status).toBe(0);
       expect(run("--rows", f, "--memo", text, "--kind", kind === "dailyrun" ? "dailyrace" : "dailyrun").status).toBe(1);
     }
+  });
+  it("verifies battle leaves of one window, pinned with --kind / --id", async () => {
+    const w = "2026-10-19T04";
+    const base = { userId: "u1", name: "Al", equity: "10842.120000", pnlPct: "-8.4212", trades: 8, out: true, finished: false, fillsHash: "d".repeat(64) };
+    const leaves = [
+      await battleLeaf(w, { ...base, battleId: "3f2b9c1e-8d4a-4b6f-9e21-7c5d0a1b2e3f", rank: 1 }),
+      await battleLeaf(w, { ...base, battleId: "a0c4e6f8-1b3d-4f5a-8c7e-9d0b2a4c6e81", rank: 2 }),
+    ];
+    const m = await merkleRoot(leaves);
+    const text = formatMemo({ kind: "battle", id: w, root: m.root, count: m.count });
+    const f = write("battle.json", leaves);
+    expect(run("--rows", f, "--memo", text, "--kind", "battle", "--id", w).status).toBe(0);
+    expect(run("--rows", f, "--memo", text, "--kind", "battle", "--id", "2026-10-19T08").status).toBe(1);
+    expect(run("--rows", f, "--memo", text, "--kind", "cup").status).toBe(1);
+    expect(run("--rows", f, "--memo", text.replace("T04", "T03")).status).toBe(1);
   });
   it("exits 1 on a tampered row, a wrong root and a malformed memo", () => {
     const tampered = write("t.json", [rows[0], rows[1], { id: "c", s: 4 }]);
