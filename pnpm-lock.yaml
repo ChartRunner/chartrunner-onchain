@@ -27,7 +27,7 @@ importers:
   packages/verify:
     devDependencies:
       '@types/node':
-        specifier: ^24
+        specifier: 24.19.1
         version: 24.19.1
       typescript:
         specifier: 5.9.3

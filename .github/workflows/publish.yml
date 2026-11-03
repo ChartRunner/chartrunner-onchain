@@ -1,0 +1,90 @@
+name: Publish @chartrunner/verify
+
+# Publishing is manual and owner-only: it runs when the owner publishes a GitHub release, or dispatches this workflow by
+# hand (a dry run unless told otherwise). It needs the NPM_TOKEN repository secret, which only the owner sets.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Pack and run every check, but do not publish (npm publish --dry-run)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # npm provenance (Sigstore attestation of this workflow run)
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A protected environment: the owner can require a reviewer for every publish (Settings > Environments > npm).
+    environment: npm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Version comes from package.json "packageManager".
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # A release must be tagged v<version> of packages/verify/package.json, so the tag and the tarball agree.
+      - name: release tag matches the package version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(node -p "require('./packages/verify/package.json').version")"
+          if [ "$TAG" != "v$version" ]; then
+            echo "release tag $TAG does not match packages/verify version v$version" >&2
+            exit 1
+          fi
+
+      # A real publish only ever comes from main: a dispatch must run on main, a release must target main.
+      - name: real publishes come from main
+        if: github.event_name == 'release' || inputs.dry_run == false
+        env:
+          REF: ${{ github.ref }}
+          TARGET: ${{ github.event.release.target_commitish }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            [ "$TARGET" = "main" ] || { echo "release targets $TARGET, not main" >&2; exit 1; }
+          else
+            [ "$REF" = "refs/heads/main" ] || { echo "dispatch on $REF: a real publish runs on main only" >&2; exit 1; }
+          fi
+
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm vectors:check
+
+      # prepublishOnly fails unless LICENSE, NOTICE and dist/ are in the package directory; prepack rebuilds and recopies.
+      - name: copy LICENSE and NOTICE into the package
+        working-directory: packages/verify
+        run: node scripts/pack-files.mjs copy
+
+      - name: npm publish
+        working-directory: packages/verify
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --provenance --access public --dry-run
+          else
+            npm publish --provenance --access public
+          fi

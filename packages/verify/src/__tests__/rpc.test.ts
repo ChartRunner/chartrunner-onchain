@@ -91,6 +91,48 @@ describe("fetchMemo", () => {
   });
 });
 
+describe("fetchMemo: account-key shapes and the signer model (SPEC 2.4 rule 6)", () => {
+  const OPERATOR = "So11111111111111111111111111111111111111112";
+  const WALLET = "Vote111111111111111111111111111111111111111";
+  const OTHER = "Stake11111111111111111111111111111111111111";
+  const LOADED = "SysvarRent111111111111111111111111111111111";
+  const ROOT = "a".repeat(64);
+  const cupMemo = formatMemo({ kind: "cup", id: "c1", root: ROOT, count: 3 });
+  const mapMemo = formatMemo({ kind: "map", id: "ent-1", root: ROOT, count: 1 });
+  const key = (pubkey: string, signer: boolean, source = "transaction") => ({ pubkey, signer, writable: signer, source });
+  const withKeys = (memo: string, accountKeys: unknown[], extra: Record<string, unknown> = {}) => ({
+    slot: 90,
+    version: 0,
+    meta: { err: null, loadedAddresses: { writable: [], readonly: [LOADED] } },
+    transaction: { signatures: [SIG], message: { accountKeys, instructions: [{ programId: MEMO_PROGRAM_ID, parsed: memo }], ...extra } },
+  });
+
+  it("a v0 transaction with lookup-table addresses: loaded keys never count as signers", async () => {
+    const keys = [key(OPERATOR, true), key(MEMO_PROGRAM_ID, false), key(LOADED, false, "lookupTable")];
+    const v0 = withKeys(cupMemo, keys, { addressTableLookups: [{ accountKey: OTHER, writableIndexes: [], readonlyIndexes: [0] }] });
+    expect(await fetchMemo(SIG, { ...opts(reply(v0)), expectSigner: OPERATOR })).toEqual({ ok: true, memo: cupMemo, feePayer: OPERATOR, signers: [OPERATOR], slot: 90, signatureCheck: "not_requested" });
+    // A user kind cannot be "signed" by an address that only arrived through a lookup table.
+    expect(await fetchMemo(SIG, { ...opts(reply(withKeys(mapMemo, keys))), expectSigner: LOADED })).toMatchObject({ ok: false, reason: "signer_mismatch" });
+  });
+  it("operator kind: the operator co-signing while someone else pays is a signer_mismatch", async () => {
+    const cosigned = [key(OTHER, true), key(OPERATOR, true)];
+    const r = await fetchMemo(SIG, { ...opts(reply(withKeys(cupMemo, cosigned))), expectSigner: OPERATOR });
+    expect(r).toMatchObject({ ok: false, reason: "signer_mismatch" });
+    expect(!r.ok && r.message).toContain(OTHER);
+  });
+  it("user kind: the expected wallet among the signers passes, whoever pays", async () => {
+    const sponsored = [key(OTHER, true), key(WALLET, true), key(MEMO_PROGRAM_ID, false)];
+    expect(await fetchMemo(SIG, { ...opts(reply(withKeys(mapMemo, sponsored))), expectSigner: WALLET })).toMatchObject({ ok: true, feePayer: OTHER, signers: [OTHER, WALLET] });
+  });
+  it("plain-string account keys carry no signer flags: only the fee payer is known to have signed", async () => {
+    const plain = [OPERATOR, WALLET, MEMO_PROGRAM_ID];
+    expect(await fetchMemo(SIG, opts(reply(withKeys(cupMemo, plain))))).toMatchObject({ ok: true, feePayer: OPERATOR, signers: [OPERATOR] });
+    expect(await fetchMemo(SIG, { ...opts(reply(withKeys(cupMemo, plain))), expectSigner: OPERATOR })).toMatchObject({ ok: true });
+    expect(await fetchMemo(SIG, { ...opts(reply(withKeys(mapMemo, plain))), expectSigner: WALLET })).toMatchObject({ ok: false, reason: "signer_mismatch" });
+    expect(await fetchMemo(SIG, { ...opts(reply(withKeys(mapMemo, plain))), expectSigner: OPERATOR })).toMatchObject({ ok: true, signers: [OPERATOR] });
+  });
+});
+
 describe("verifyAgainstSignature", () => {
   it("verifies rows against the on-chain memo", async () => {
     const { root, count } = await merkleRoot(rows);

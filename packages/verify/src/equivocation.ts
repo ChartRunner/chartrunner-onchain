@@ -103,9 +103,17 @@ export async function checkEquivocation(opts: EquivocationOptions): Promise<Equi
     scanned += page.result.length;
     for (const s of page.result) {
       if (s.err !== null && s.err !== undefined) continue; // failed transactions anchor nothing
-      // `memo: null` means the transaction has no memo. A missing field means the RPC did not say: read the transaction.
+      // `memo: null` means the transaction has no memo; a string is the memo the RPC reports. Anything else (the field
+      // missing, or not a string) means the RPC did not say. Re-reading every such transaction would turn the scan into
+      // up to maxSignatures getTransaction calls (anyone can pad the operator's history), so the scan stops instead.
       if (s.memo === null) continue;
-      if (typeof s.memo === "string" && !s.memo.includes(needle)) continue;
+      if (typeof s.memo !== "string") {
+        return fail(
+          "scan_incomplete",
+          `The RPC did not report the memo of ${s.signature} in the operator's signature history, so the scan cannot tell which transactions to read and uniqueness was not checked. Use an RPC that returns the memo field of getSignaturesForAddress.`,
+        );
+      }
+      if (!s.memo.includes(needle)) continue;
       candidates.push(s);
     }
     if (scanned >= maxSignatures) {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { battleLeaf, cupLeavesFromStandings, dailyRaceLeaf, dailyRunLeaf, formatMemo, merkleProof, merkleRoot } from "../index.ts";
-import { exitCodeFor } from "../cli.ts";
+import { exitCodeFor, main } from "../cli.ts";
 
 const bin = new URL("../../bin/chartrunner-verify.mjs", import.meta.url).pathname;
 const dir = mkdtempSync(join(tmpdir(), "cr-verify-cli-"));
@@ -13,7 +13,12 @@ const write = (name: string, v: unknown) => {
   writeFileSync(f, typeof v === "string" ? v : JSON.stringify(v));
   return f;
 };
-const run = (...args: string[]) => spawnSync(process.execPath, [bin, ...args], { encoding: "utf8" });
+// The child never inherits a CHARTRUNNER_RPC_URL from the developer's shell.
+const childEnv = { ...process.env };
+delete childEnv.CHARTRUNNER_RPC_URL;
+const run = (...args: string[]) => spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", env: childEnv });
+/** A syntactically valid address (32 bytes in base58); not anyone's operator. */
+const ADDR = "So11111111111111111111111111111111111111112";
 
 const rows = [{ id: "a", s: 1 }, { id: "b", s: 2 }, { id: "c", s: 3 }];
 
@@ -89,7 +94,9 @@ describe("chartrunner-verify CLI", async () => {
     expect(run().status).toBe(2);
     expect(run("--rows", good).status).toBe(2);
     expect(run("--memo", memo).status).toBe(2);
-    expect(run("--rows", good, "--sig", "5".repeat(88), "--signer", "Op").status).toBe(2); // no default RPC
+    const noRpc = run("--rows", good, "--sig", "5".repeat(88), "--signer", ADDR);
+    expect(noRpc.status).toBe(2); // no default RPC
+    expect(noRpc.stderr).toContain("CHARTRUNNER_RPC_URL");
     const noSigner = run("--rows", good, "--sig", "5".repeat(88), "--rpc", "http://127.0.0.1:1");
     expect(noSigner.status).toBe(2); // --signer is required with --sig
     expect(noSigner.stderr).toContain("--signer");
@@ -99,7 +106,7 @@ describe("chartrunner-verify CLI", async () => {
     expect(run("--bogus").status).toBe(2);
   });
   it("exits 2, never 0, when the RPC is unreachable", () => {
-    const r = run("--rows", good, "--sig", "5".repeat(88), "--rpc", "http://127.0.0.1:1", "--signer", "Op");
+    const r = run("--rows", good, "--sig", "5".repeat(88), "--rpc", "http://127.0.0.1:1", "--signer", ADDR);
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("rpc_unreachable");
   });
@@ -113,10 +120,58 @@ describe("chartrunner-verify CLI", async () => {
   it("--help exits 0", () => {
     expect(run("--help").status).toBe(0);
   });
-  it("maps reasons to exit codes", () => {
+  it("maps reasons to exit codes: 1 the data does not match, 2 usage/environment or a check not performed", () => {
     expect(exitCodeFor({ ok: true })).toBe(0);
-    expect(exitCodeFor({ ok: false, reason: "root_mismatch" })).toBe(1);
-    expect(exitCodeFor({ ok: false, reason: "rpc_unreachable" })).toBe(2);
-    expect(exitCodeFor({ ok: false, reason: "rows_invalid" })).toBe(2);
+    for (const reason of ["root_mismatch", "count_mismatch", "proof_invalid", "memo_subject_mismatch", "memo_malformed", "signer_mismatch", "tx_failed", "no_memo", "multiple_memos", "equivocation", "bad_signature", "tx_mismatch"]) {
+      expect(exitCodeFor({ ok: false, reason }), reason).toBe(1);
+    }
+    for (const reason of ["rows_invalid", "leaf_invalid", "input_invalid", "rpc_url_invalid", "signature_invalid", "rpc_unreachable", "rpc_error", "tx_not_found", "meta_missing", "signature_mismatch", "tx_undecodable", "signature_unverified", "equivocation_unchecked"]) {
+      expect(exitCodeFor({ ok: false, reason }), reason).toBe(2);
+    }
+  });
+  it("--signer must be a base58 32-byte address: a typo is a usage error (2), never a mismatch", () => {
+    for (const bad of ["Op", ADDR.slice(0, -1) + "0", ADDR.slice(0, -1) + "l", "1".repeat(44), ADDR + "1"]) {
+      const r = run("--rows", good, "--sig", "5".repeat(88), "--rpc", "http://127.0.0.1:1", "--signer", bad);
+      expect(r.status, bad).toBe(2);
+      expect(r.stderr, bad).toMatch(/--signer must be a base58 Solana address/);
+    }
+  });
+});
+
+describe("chartrunner-verify CLI: RPC URL from the environment", () => {
+  const SIG = "5".repeat(88);
+  const silent = { out: () => {}, err: () => {} };
+  /** Runs main with a fetch that records the URL it was called with and answers like a node without the transaction. */
+  async function urlUsed(argv: string[], env: Record<string, string | undefined>) {
+    const urls: string[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: null }));
+    }) as typeof fetch;
+    try {
+      const code = await main(argv, silent, env);
+      return { code, urls };
+    } finally {
+      globalThis.fetch = real;
+    }
+  }
+  const rowsFile = write("env-rows.json", rows);
+
+  it("uses CHARTRUNNER_RPC_URL when --rpc is absent", async () => {
+    const r = await urlUsed(["--rows", rowsFile, "--sig", SIG, "--signer", ADDR], { CHARTRUNNER_RPC_URL: "https://env-rpc.example/key" });
+    expect(r.urls).toEqual(["https://env-rpc.example/key"]);
+    expect(r.code).toBe(2); // tx_not_found: the URL was used, nothing verified
+  });
+  it("--rpc overrides the environment", async () => {
+    const r = await urlUsed(["--rows", rowsFile, "--sig", SIG, "--signer", ADDR, "--rpc", "https://flag-rpc.example"], { CHARTRUNNER_RPC_URL: "https://env-rpc.example" });
+    expect(r.urls).toEqual(["https://flag-rpc.example/"]);
+  });
+  it("an empty variable is unset, and offline mode ignores it", async () => {
+    const empty = await urlUsed(["--rows", rowsFile, "--sig", SIG, "--signer", ADDR], { CHARTRUNNER_RPC_URL: "" });
+    expect(empty).toEqual({ code: 2, urls: [] });
+    const { root, count } = await merkleRoot(rows);
+    const offline = await urlUsed(["--rows", rowsFile, "--memo", formatMemo({ kind: "cup", id: "c1", root, count })], { CHARTRUNNER_RPC_URL: "https://env-rpc.example" });
+    expect(offline).toEqual({ code: 0, urls: [] });
   });
 });

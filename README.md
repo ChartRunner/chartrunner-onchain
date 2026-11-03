@@ -40,8 +40,9 @@ What is live on mainnet today:
   [SPEC.md sections 7.3 and 7.4](SPEC.md#73-daily-run-leaf-dailyrun); the first `dailyrace` anchor is
   2026-10-14; a board day with no finished entries is not anchored), signed by the published operator
   address `68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy` ([SPEC.md section 2.6](SPEC.md#26-operator-addresses)).
-  35 anchors (27 cups, 6 free-play boards, 1 daily board, 1 Daily Race board) were posted between 2026-10-06 and
-  2026-10-15. The full list is at <https://app.chartrunner.xyz/api/anchors?limit=100>.
+  As of 2026-10-15, 35 anchors (27 cups, 6 free-play boards, 1 daily board, 1 Daily Race board) had been posted
+  since 2026-10-06. That is a snapshot, not a guarantee; the count keeps growing. The current list is at
+  <https://app.chartrunner.xyz/api/anchors?limit=100>.
 - Battles have their own kind, `battle` (id the 4-hour UTC window `YYYY-MM-DDTHH`, one leaf per final standing of every
   battle frozen in it), specified in [SPEC.md section 7.5](SPEC.md#75-battle-leaf-battle). Its first anchor follows the
   app release that writes it.
@@ -59,7 +60,8 @@ node packages/verify/dist/cli.js --rows results.json --sig "$SIG" --rpc https://
   --signer 68tWAPfHGkfVzNK1D7PxzVrBrDbtiyqmW2wddwqEmVhy --kind cup --id "$CUP" --verify-signature --check-equivocation
 ```
 
-Expected output (exit code `0`):
+Example output, as of 2026-10-12 (exit code `0`). The root and slot are fixed by that cup's anchor, but the number of
+signatures scanned grows as the operator address writes more transactions, so yours will be higher:
 
 ```
 VERIFIED  cup 3277e988-3f27-4de1-9954-4f5681c34fbd: 2 rows rebuild root c08eae042e433c371dbae5ae3bc1f1cbcc1e781814015e2c7e55cb7f5fc45c91
@@ -83,8 +85,8 @@ choose. The ChartRunner app's own `/verify` page runs this same library, so what
 
 ## Quickstart
 
-Requirements: Node 24 (see `.node-version`) and pnpm 11 (the version is pinned in `package.json`). The package is not on
-npm yet, so build it from this checkout:
+Requirements to build and test: Node 24 (see `.node-version`) and pnpm 11 (the version is pinned in `package.json`).
+The built package itself runs on Node 20 or later. It is not on npm yet, so build it from this checkout:
 
 ```sh
 git clone https://github.com/ChartRunner/chartrunner-onchain.git
@@ -107,8 +109,11 @@ node packages/verify/dist/cli.js --proof proof.json --memo "chartrunner:v1:cup:<
 node packages/verify/dist/cli.js --rows results.json --sig <signature> --rpc <your rpc url> --signer <operator address>
 ```
 
-Exit codes: `0` verified, `1` the data does not match the anchor, `2` anything that prevented a verdict (bad input,
-RPC outage, transaction not found). An outage never exits `0`.
+Exit codes: `0` verified, `1` the data does not match the anchor, `2` a usage or environment error, or a check that was
+not performed (bad input, RPC outage, transaction not found, `--verify-signature` without Ed25519). An outage never
+exits `0`. The [package README](packages/verify/README.md#exit-codes) lists every reason and its code. Instead of
+`--rpc`, the RPC URL can come from the `CHARTRUNNER_RPC_URL` environment variable, which keeps a URL with an API key
+out of your shell history; `--rpc` wins when both are set.
 
 `results.json` may be an array of rows, `{"rows": [...]}`, or a cup results document
 (`{"cupId": "...", "results": {"standings": [...]}}`), which is turned into leaves exactly as the app does.
@@ -142,7 +147,8 @@ existed by that slot. It does not prove:
   whether the host overrode the default picks) is covered by the cup's `results_hash`, which is not on chain, and not by
   the Merkle anchor;
 - that nobody was left out before anchoring (the row count is on chain, so an excluded player can show they have no
-  proof, but the root alone does not prevent it);
+  proof, but the root alone does not prevent it). A single row checked with a proof is bound to `count` only as an
+  upper bound on the proof's length: it shows that row is in the set, not that the set is complete;
 - that the operator address you compared against is really ChartRunner's. Take it from
   [SPEC.md section 2.6](SPEC.md#26-operator-addresses) or the [documentation](https://docs.chartrunner.xyz), not from
   the same source as the data;

@@ -18,6 +18,7 @@ const shaHex = (text) => sha(text).toString("hex");
 
 // ---- spec section 3: canonical row text ----
 function canonical(row) {
+  if (row === null || typeof row !== "object" || Array.isArray(row)) throw new Error("a row must be a JSON object");
   const keys = Object.keys(row).sort(); // UTF-16 code unit order
   return `{${keys
     .map((k) => {

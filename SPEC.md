@@ -215,7 +215,7 @@ pages through the operator address's finalized signature history (`getSignatures
 transactions and those whose reported memo does not name the (kind, id), re-reads every remaining candidate with the
 rules in 2.4, and returns `none`, `unique`, `duplicate` or `equivocation` together with every anchor found and the
 winner. A history it could not read completely (outage, pruned transaction, more signatures than its limit, a cursor that
-does not advance) is a failure with a reason, never `none` or `unique`. `anchorStanding(result, checked)` applies the
+does not advance, an entry whose memo the RPC did not report) is a failure with a reason, never `none` or `unique`. `anchorStanding(result, checked)` applies the
 table above to a checked anchor (`not_in_scan`, `sole`, `duplicate`, `equivocation_first`, `not_first`).
 
 The rule covers operator kinds. For user kinds it is not defined yet; it will be specified with their leaf schemas.
@@ -532,6 +532,9 @@ It does not prove:
   never published by it.
 - **Completeness by itself.** The root does not stop the operator from leaving a player out before anchoring. The
   on-chain count makes the number of entries public, and an excluded player can show they have no proof (section 5).
+  Proof mode (one row and its proof, section 6) binds `count` only as an upper bound on the proof's length: it shows
+  that the row is in the committed set, not that the set you were shown is complete. Only a full row-set check compares
+  the number of rows with `count`.
 - **Who the operator is.** The verifier checks the fee payer against an address you supply. Take it from section 2.6
   or ChartRunner's published documentation, not from the same place as the data you are checking.
 - **That this is the only anchor.** One transaction cannot show that no other operator memo exists for its (kind, id).
