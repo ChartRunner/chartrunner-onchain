@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import * as legacy from "./legacy-merkle";
 import * as legacyLeaves from "./legacy-leaves";
@@ -373,6 +374,10 @@ describe("verifyAgainstMemo", () => {
     // A null-prototype object is still a plain row and serializes like a literal.
     const bare = Object.assign(Object.create(null), { s: 1, id: "a" });
     expect(serializeRow(bare)).toBe('{"id":"a","s":1}');
+    // So is an object literal from another realm (vm context, iframe), whose Object.prototype is a different object.
+    const foreign = runInNewContext('({ s: 1, id: "a" })') as typeof bare;
+    expect(Object.getPrototypeOf(foreign)).not.toBe(Object.prototype);
+    expect(serializeRow(foreign)).toBe('{"id":"a","s":1}');
   });
   it("can pin the memo to an expected kind and id", async () => {
     expect(await verifyAgainstMemo({ rows, memoText: memo, expect: { kind: "cup", id: "c1" } })).toMatchObject({ ok: true });

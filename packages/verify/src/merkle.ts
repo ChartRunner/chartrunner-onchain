@@ -78,7 +78,8 @@ export function canonicalJson(entry: LeafEntry): string {
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
   const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
+  // Object.prototype of this realm or of another one (vm, iframe): its own prototype is null. A class instance's is not.
+  return proto === null || Object.getPrototypeOf(proto) === null;
 }
 
 const LEAF_PREFIX = new Uint8Array([0x00]);

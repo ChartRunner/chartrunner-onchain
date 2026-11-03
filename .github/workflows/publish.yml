@@ -26,6 +26,8 @@ jobs:
     name: publish
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # A protected environment: the owner can require a reviewer for every publish (Settings > Environments > npm).
+    environment: npm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,6 +53,19 @@ jobs:
           if [ "$TAG" != "v$version" ]; then
             echo "release tag $TAG does not match packages/verify version v$version" >&2
             exit 1
+          fi
+
+      # A real publish only ever comes from main: a dispatch must run on main, a release must target main.
+      - name: real publishes come from main
+        if: github.event_name == 'release' || inputs.dry_run == false
+        env:
+          REF: ${{ github.ref }}
+          TARGET: ${{ github.event.release.target_commitish }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            [ "$TARGET" = "main" ] || { echo "release targets $TARGET, not main" >&2; exit 1; }
+          else
+            [ "$REF" = "refs/heads/main" ] || { echo "dispatch on $REF: a real publish runs on main only" >&2; exit 1; }
           fi
 
       - run: pnpm build
