@@ -369,11 +369,53 @@ One leaf per player: their best run of that day (highest score; the earliest run
 | `pct`  | return in percent, the results document's fixed-decimal string, verbatim |
 | `tr`   | number of exits (integer) |
 | `dq`   | the host's disqualification flag (boolean) |
-| `fh`   | `fillsHash` of the standing: the hash of the player's validated fills |
+| `fh`   | `fillsHash` of the standing: the hash of the player's validated fills, defined in 7.2.1 |
 
 One leaf per standing, built from the frozen results document only (never from live data). `cupLeavesFromStandings`
 reads exactly the fields `rank, userId, name, equity, pnlPct, trades, disqualified, fillsHash` from each standing and
 ignores every other field.
+
+#### 7.2.1 The fills hash `fh`
+
+`fh` is the same function for a cup standing (7.2) and a battle standing (7.5):
+
+```
+fh = hex SHA-256( UTF-8( fills_text ) )        lowercase hex, plain SHA-256 (no 0x00 prefix)
+fills_text = "[" + canonical text of fill 1 + "," + ... + "," + canonical text of fill n + "]"
+```
+
+The list holds one object per fill of the player, in the order the server accepted the fills (submission order),
+followed by every liquidation the operator's final sweep applied when the results were frozen. Each object is
+serialized with the canonical serialization of section 3 (keys sorted, no whitespace); the objects are joined by `,`
+with no whitespace. A player with no fills has the list `[]`, so `fh` is
+`4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`.
+
+Fill number `i` (counting from 1) has exactly these keys and no others (no client ids, no internal flags):
+
+| key         | value |
+| ----------- | ----- |
+| `seq`       | `i` (integer): its position in the list, 1 to n with no gaps, not a stored id |
+| `t`         | the time of the fill, integer epoch milliseconds |
+| `symbol`    | the traded symbol (string) |
+| `side`      | `"long"` or `"short"` |
+| `kind`      | `"open"`, `"add"`, `"reduce"`, `"close"` or `"liquidation"` |
+| `orderType` | cups: `"market"`, `"limit"`, `"stop"` or `"liquidation"`; battles: `"market"` or `"liquidation"` |
+| `qty`       | quantity, a fixed-decimal string with exactly 10 decimals |
+| `price`     | fill price, a fixed-decimal string with exactly 8 decimals |
+| `fee`       | fee, a fixed-decimal string with exactly 8 decimals |
+| `realized`  | realized profit or loss, a fixed-decimal string with exactly 8 decimals, or `null` |
+| `net`       | the fill's net result as the server stored it, a fixed-decimal string with exactly 8 decimals, or `null` |
+| `leverage`  | leverage (integer) |
+
+A fixed-decimal string (section 3) here is the value written with exactly the stated number of decimals, rounded half
+away from zero as ECMAScript `Number.prototype.toFixed` does on the stored number: a leading `-` only when negative,
+no `+`, no exponent, no leading zeros. A value that rounds to zero is written without a sign (`"0.00000000"`, never
+`"-0.00000000"`). The vectors include an empty list, a three-fill list and a negative-zero case
+(`fillsHash` in `test-vectors/v1.json`); the reference is `fillsHash` / `fillsCanonical` in `leaves.ts`.
+
+This is the hash the app has computed for every cup standing since the first cup anchor, over the stored fills plus the
+final sweep's liquidations: writing it down clarifies 7.2 and changes no cup anchor, leaf or vector. `fh` lets a
+published fill list be checked for consistency with a standing; it is not proof of fair execution (section 8).
 
 ### 7.3 Daily Run leaf (`dailyrun`)
 
@@ -447,7 +489,7 @@ The keys above are in canonical order (section 3); a battle leaf has exactly the
 | `tr`   | number of exits (integer, 0 or more) | as `tr` in 7.2 |
 | `out`  | `true` when the player was knocked out (Last Man Standing) (boolean) | knock-out decides a Last Man Standing battle |
 | `fin`  | `true` when the player reached the target (Profit Race) (boolean) | reaching the target decides a Profit Race battle |
-| `fh`   | `fillsHash` of the standing, 64 lowercase hex: defined exactly as the cup leaf's `fh` (7.2): the same hash of the player's validated fills, computed the same way | commits the standing to its fills (section 8) |
+| `fh`   | `fillsHash` of the standing, 64 lowercase hex: the fills hash of 7.2.1, the same function as the cup leaf's `fh`: the player's fills in submission order followed by the final sweep's liquidations, battle order types `market` and `liquidation` only | commits the standing to its fills (section 8) |
 
 One leaf per final standing of each battle whose results were frozen in the window, built from the battle's frozen
 results only (never from live data). A player who played two battles in one window has two leaves; they differ in `b`.
@@ -477,9 +519,9 @@ It does not prove:
 - **Fair play or fair fills.** The anchor proves the published standings were not changed after anchoring. It does not
   prove the game server's rules, prices, fills or scoring were correct beyond what the server checked before it
   anchored. A self-consistent but wrong snapshot anchors and verifies like a correct one.
-- **The fills themselves.** `fh` commits each cup standing (7.2) and each battle standing (7.5) to a hash of its fills,
-  so a published fills list can be checked for consistency with the standing. That is a consistency check, not proof of
-  fair execution.
+- **The fills themselves.** `fh` commits each cup standing (7.2) and each battle standing (7.5) to a hash of its fills
+  (7.2.1, final-sweep liquidations included), so a published fills list can be checked for consistency with the
+  standing. That is a consistency check, not proof of fair execution.
 - **The cup results document as a whole.** The app also publishes `results_hash`, the SHA-256 of a cup's canonical
   results text. That hash is not on chain. Fields of the results document that are not in the cup leaf (section 7.2)
   are not covered by the anchor. In particular, the `final` block of a final-stage cup (`qualifierId`, the
@@ -524,6 +566,7 @@ It does not prove:
 | 2026-10-06 | first mainnet anchors; format v1 frozen with `freeplay`, `daily`, `cup` (active), `xp` (reserved), `map`, `strategy`, `bot`, `backtest` (planned) |
 | 2026-10-13 | `dailyrun` and `dailyrace` added: operator kinds, id the UTC date, count the number of leaves, leaves 7.3 and 7.4. Vectors appended (`dailyRun`, `dailyRace`, two valid and three invalid memos). No existing vector, hash or kind changed |
 | 2026-11-03 | `battle` added: operator kind, id the 4-hour UTC window `YYYY-MM-DDTHH` (`HH` in `00 04 08 12 16 20`, a real date), count the number of leaves, at most 10000, leaf 7.5 (the former 7.5 is now 7.6). Vectors appended (`battle`, three valid and eleven invalid memos). No existing vector, hash or kind changed; the longest valid memo stays 164 bytes |
+| 2026-11-03 | the fills hash `fh` of cup and battle standings written down (7.2.1): SHA-256 of the canonical fill list in submission order plus the final sweep's liquidations. A clarification of what the app has computed since the first cup anchor; no existing anchor, leaf, schema or vector changed. Vectors appended (`fillsHash`: empty list, three fills, negative zero) |
 
 ## 10. Legacy: the `cr1:` memo format
 

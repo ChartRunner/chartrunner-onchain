@@ -165,6 +165,43 @@ const battleStandings = [
   { battleId: BATTLE_B, rank: 2, userId: "user-0004", name: "Dee", equity: "10000.000000", pnlPct: "0.0000", trades: 0, out: false, finished: false, fillsHash: "2".repeat(64) },
 ];
 
+// SPEC 7.2.1: the fills hash `fh` of a cup or battle standing. Inputs are numbers as the server stores them; each value
+// is written with toFixed (qty 10 decimals, price/fee/realized/net 8), negative zero without the sign.
+const fixed = (v, d) => {
+  const s = v.toFixed(d);
+  return /^-0\.0+$/.test(s) ? s.slice(1) : s;
+};
+const fillObject = (f, i) => ({
+  seq: i + 1,
+  t: f.t,
+  symbol: f.symbol,
+  side: f.side,
+  kind: f.kind,
+  orderType: f.orderType,
+  qty: fixed(f.qty, 10),
+  price: fixed(f.price, 8),
+  fee: fixed(f.fee, 8),
+  realized: f.realized === null ? null : fixed(f.realized, 8),
+  net: f.net === null ? null : fixed(f.net, 8),
+  leverage: f.leverage,
+});
+const fillsText = (fills) => `[${fills.map((f, i) => canonical(fillObject(f, i))).join(",")}]`;
+const fillsCases = [
+  ["no fills", []],
+  [
+    "open, reduce with realized/net, final-sweep liquidation",
+    [
+      { t: 1760846400000, symbol: "SOL", side: "long", kind: "open", orderType: "market", qty: 12.5, price: 187.4321, fee: 1.17145063, realized: null, net: null, leverage: 5 },
+      { t: 1760847300250, symbol: "SOL", side: "long", kind: "reduce", orderType: "market", qty: 5, price: 191.2, fee: 0.478, realized: 18.8395, net: 18.3615, leverage: 5 },
+      { t: 1760860799999, symbol: "SOL", side: "long", kind: "liquidation", orderType: "liquidation", qty: 7.5, price: 150.12345678, fee: 0, realized: null, net: -280.4627, leverage: 5 },
+    ],
+  ],
+  [
+    "negative zero is written without the sign",
+    [{ t: 1760846400000, symbol: "BTC", side: "short", kind: "close", orderType: "market", qty: -0.00000000001, price: 65000, fee: 0, realized: -0.000000001, net: -0.0000000004, leverage: 1 }],
+  ],
+];
+
 const R = "0e35f6c675e52d251f7e0b25c5fb5d8b728344eea7f519f70ffc950651d95f92";
 const validMemos = [
   ["chartrunner:v1:cup:cup-2026.10:" + R + ":3", { kind: "cup", id: "cup-2026.10", root: R, count: 3 }],
@@ -330,6 +367,8 @@ function build() {
     dailyRace: { kind: "dailyrace", date: dailyModesDate, rows: dailyRaceRows, leaves: raceLeaves, ...withProofs(treeVector("dailyrace board leaves", "dailyrace", dailyModesDate, raceLeaves)) },
     // Appended for the battle kind (SPEC 7.5).
     battle: { kind: "battle", window: battleWindow, standings: battleStandings, leaves: battleLeaves, ...withProofs(treeVector("battle leaves of one window", "battle", battleWindow, battleLeaves)) },
+    // Appended with the written-down `fh` definition (SPEC 7.2.1).
+    fillsHash: fillsCases.map(([name, fills]) => ({ name, fills, canonical: fillsText(fills), hash: shaHex(fillsText(fills)) })),
   };
 }
 

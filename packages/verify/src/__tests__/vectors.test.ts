@@ -9,6 +9,8 @@ import {
   cupLeavesFromStandings,
   dailyRaceLeaf,
   dailyRunLeaf,
+  fillsCanonical,
+  fillsHash,
   formatMemo,
   handleHash,
   hashNode,
@@ -36,7 +38,7 @@ import {
 
 const VECTORS_URL = new URL("../../../../test-vectors/v1.json", import.meta.url);
 /** sha256 of test-vectors/v1.json. The app pins the same value: update both together, and only to APPEND vectors. */
-const VECTORS_SHA256 = "ddd6b028b3c30a40d5c8d66105e4bebb63bbec88256b244e9fb0593a69d78eaa";
+const VECTORS_SHA256 = "7681b3ee07a8ea7b8ec7ffcf84e787cbe0041964fd2e5549302dfb35c53a99f6";
 
 const raw = readFileSync(VECTORS_URL);
 const V = JSON.parse(raw.toString("utf8")) as Vectors;
@@ -79,6 +81,7 @@ interface Vectors {
     sortedLeaves: { canonical: string; hash: string }[];
     proofs: { index: number; leaf: string; proof: ProofStep[] }[];
   };
+  fillsHash: { name: string; fills: Parameters<typeof fillsHash>[0]; canonical: string; hash: string }[];
 }
 interface ModeVector<Row> {
   kind: "dailyrun" | "dailyrace";
@@ -205,6 +208,19 @@ describe("battle leaf schema (SPEC 7.5)", () => {
   it("the leaves carry exactly the documented keys, in canonical order", () => {
     expect(Object.keys(V.battle.leaves[0]!).sort()).toEqual(["b", "eq", "fh", "fin", "h", "id", "k", "out", "pct", "rank", "tr", "u", "v"]);
     expect(V.battle.sortedLeaves[0]!.canonical).toMatch(/^\{"b":"[0-9a-f-]{36}","eq":"[0-9.]+","fh":"[0-9a-f]{64}","fin":(true|false),"h":"[0-9a-f]{64}","id":"2026-10-19T04","k":"battle","out":(true|false),"pct":"-?[0-9.]+","rank":[1-9][0-9]*,"tr":[0-9]+,"u":"[0-9a-f]{64}","v":1\}$/);
+  });
+});
+
+describe("fills hash fh (SPEC 7.2.1)", () => {
+  for (const v of V.fillsHash) {
+    it(v.name, async () => {
+      expect(fillsCanonical(v.fills)).toBe(v.canonical);
+      expect(await fillsHash(v.fills)).toBe(v.hash);
+      expect(createHash("sha256").update(v.canonical, "utf8").digest("hex")).toBe(v.hash);
+    });
+  }
+  it("the empty list is [] and hashes to the documented value", () => {
+    expect(V.fillsHash[0]).toMatchObject({ canonical: "[]", hash: "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945" });
   });
 });
 

@@ -1,5 +1,5 @@
 import { isBattleWindowId } from "./kinds.ts";
-import { isHash, sha256Hex, type LeafEntry } from "./merkle.ts";
+import { canonicalJson, isHash, sha256Hex, type LeafEntry } from "./merkle.ts";
 
 // Pseudonymous identifiers used inside leaves. Isomorphic: /verify hashes a typed handle the same way the server did.
 
@@ -254,3 +254,103 @@ export async function battleLeaf(windowId: string, row: BattleLeafRow): Promise<
   if (problem) throw new Error(`invalid battle leaf: ${problem}`);
   return leaf;
 }
+
+// ---- fills hash (SPEC 7.2.1) -------------------------------------------------------------------------------------
+
+/** A decimal fill value: a number (written with toFixed, negative zero without the sign) or an already fixed string. */
+export type FillDecimal = number | string;
+
+/**
+ * One fill as the fills hash reads it (SPEC 7.2.1), in the order the server accepted it; the final sweep's liquidations
+ * come last. Only these fields are committed; any other field of the input (a client id, an internal flag) is ignored.
+ * `seq` is the 1-based position and is assigned here; when the input carries one, it must equal that position.
+ */
+export interface FillInput {
+  seq?: number;
+  /** Epoch milliseconds (integer). */
+  t: number;
+  symbol: string;
+  side: "long" | "short";
+  kind: "open" | "add" | "reduce" | "close" | "liquidation";
+  orderType: "market" | "limit" | "stop" | "liquidation";
+  /** 10 decimals. */
+  qty: FillDecimal;
+  /** 8 decimals. */
+  price: FillDecimal;
+  /** 8 decimals. */
+  fee: FillDecimal;
+  /** 8 decimals, or null. */
+  realized: FillDecimal | null;
+  /** 8 decimals, or null. */
+  net: FillDecimal | null;
+  leverage: number;
+}
+
+const FILL_SIDES = ["long", "short"] as const;
+const FILL_KINDS = ["open", "add", "reduce", "close", "liquidation"] as const;
+/** Order types of cup fills; battle fills use only "market" and "liquidation". */
+export const CUP_ORDER_TYPES = ["market", "limit", "stop", "liquidation"] as const;
+export const BATTLE_ORDER_TYPES = ["market", "liquidation"] as const;
+
+/** Fixed decimal with exactly `d` decimals: optional "-", no leading zeros, never a negative zero. */
+function fixedDecimal(v: unknown, d: number, field: string, i: number): string {
+  let out: string;
+  if (typeof v === "number") {
+    if (!Number.isFinite(v)) throw new Error(`invalid fill ${i}: ${field} must be finite`);
+    out = v.toFixed(d);
+    if (/^-0\.0+$/.test(out)) out = out.slice(1);
+  } else if (typeof v === "string") {
+    out = v;
+  } else {
+    throw new Error(`invalid fill ${i}: ${field} must be a number or a decimal string`);
+  }
+  const re = new RegExp(`^-?(0|[1-9][0-9]*)\\.[0-9]{${d}}$`);
+  if (!re.test(out) || /^-0\.0+$/.test(out)) throw new Error(`invalid fill ${i}: ${field} must be a decimal with exactly ${d} decimals (no exponent, no "+", no negative zero), got ${JSON.stringify(out)}`);
+  return out;
+}
+
+/**
+ * The committed form of a fill list (SPEC 7.2.1): one object per fill with exactly the keys
+ * `fee, kind, leverage, net, orderType, price, qty, realized, seq, side, symbol, t`. Throws on any value outside the
+ * definition. `orderTypes` narrows the allowed order types (battles: BATTLE_ORDER_TYPES).
+ */
+export function fillsCommitment(fills: readonly FillInput[], orderTypes: readonly string[] = CUP_ORDER_TYPES): LeafEntry[] {
+  if (!Array.isArray(fills)) throw new Error("fills must be an array");
+  return fills.map((f, idx) => {
+    const i = idx + 1;
+    if (typeof f !== "object" || f === null) throw new Error(`invalid fill ${i}: not an object`);
+    if (f.seq !== undefined && f.seq !== i) throw new Error(`invalid fill ${i}: seq must be its 1-based position ${i}`);
+    if (!Number.isSafeInteger(f.t)) throw new Error(`invalid fill ${i}: t must be integer epoch milliseconds`);
+    if (typeof f.symbol !== "string" || f.symbol === "") throw new Error(`invalid fill ${i}: symbol must be a non-empty string`);
+    if (!(FILL_SIDES as readonly string[]).includes(f.side)) throw new Error(`invalid fill ${i}: side must be long or short`);
+    if (!(FILL_KINDS as readonly string[]).includes(f.kind)) throw new Error(`invalid fill ${i}: kind must be one of ${FILL_KINDS.join(", ")}`);
+    if (!orderTypes.includes(f.orderType)) throw new Error(`invalid fill ${i}: orderType must be one of ${orderTypes.join(", ")}`);
+    if (!Number.isSafeInteger(f.leverage)) throw new Error(`invalid fill ${i}: leverage must be an integer`);
+    return {
+      seq: i,
+      t: f.t,
+      symbol: f.symbol,
+      side: f.side,
+      kind: f.kind,
+      orderType: f.orderType,
+      qty: fixedDecimal(f.qty, 10, "qty", i),
+      price: fixedDecimal(f.price, 8, "price", i),
+      fee: fixedDecimal(f.fee, 8, "fee", i),
+      realized: f.realized === null ? null : fixedDecimal(f.realized, 8, "realized", i),
+      net: f.net === null ? null : fixedDecimal(f.net, 8, "net", i),
+      leverage: f.leverage,
+    };
+  });
+}
+
+/** Canonical text of a fill list (SPEC 7.2.1): `[` + each fill's canonical object (section 3) joined by `,` + `]`. */
+export const fillsCanonical = (fills: readonly FillInput[], orderTypes: readonly string[] = CUP_ORDER_TYPES): string =>
+  `[${fillsCommitment(fills, orderTypes).map(canonicalJson).join(",")}]`;
+
+/**
+ * `fh` of a cup or battle standing (SPEC 7.2.1): lowercase hex SHA-256 of the UTF-8 canonical text of the fill list,
+ * fills in submission order followed by the final sweep's liquidations. An empty list hashes `[]`
+ * (4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945). A consistency check, not proof of fair execution.
+ */
+export const fillsHash = (fills: readonly FillInput[], orderTypes: readonly string[] = CUP_ORDER_TYPES): Promise<string> =>
+  sha256Hex(fillsCanonical(fills, orderTypes));

@@ -60,7 +60,7 @@ The leaf count is not hashed into the root; the memo carries it next to the root
 
 A cup row (`cupLeaf`) is `{v:1, k:"cup", id, rank, u, h, eq, pct, tr, dq, fh}`: `u`/`h` are sha256 pseudonyms of the
 account and displayed name, `eq` the final equity and `pct` the return as fixed-decimal strings, `tr` the exits, `dq`
-the disqualified flag and `fh` the hash of the fills.
+the disqualified flag and `fh` the hash of the fills (`fillsHash`, SPEC 7.2.1).
 
 A leaderboard-day row (`boardLeaf`, kinds `freeplay` and `daily`) is `{v:1, k, d, rank, u, h, s, dist, r}`: the date,
 the rank by score, the pseudonyms of the account, the handle and the run, the score and the distance. The daily
@@ -172,6 +172,7 @@ built library itself only needs a runtime with WebCrypto and `fetch` (Node 20+ o
 | `verifyAgainstSignature({ signature, rpcUrl, rows \| leaf+proof })` | fetch + verify |
 | `cupLeaf`, `boardLeaf`, `dailyRunLeaf`, `dailyRaceLeaf`, `battleLeaf`, `cupLeavesFromStandings`, `userHash`, `handleHash`, `runHash` | build the exact leaves the app anchors |
 | `battleLeafProblem`, `isBattleLeaf`, `isBattleWindowId`, `MAX_BATTLE_LEAVES` | check a battle leaf and a battle window id against SPEC 7.5 and 2.2 |
+| `fillsHash`, `fillsCanonical`, `fillsCommitment`, `CUP_ORDER_TYPES`, `BATTLE_ORDER_TYPES` | the `fh` of a cup or battle standing from its fills (SPEC 7.2.1): canonical fill list in submission order plus final-sweep liquidations, SHA-256 |
 | `rankRows`, `rankRowsBy` | standard competition ranking (ties share a rank) over rows sorted best first: by score, or by any key such as a race's finish tick |
 | `KINDS`, `ANCHOR_KINDS`, `OPERATOR_KINDS`, `USER_KINDS`, `kindInfo`, `isOperatorKind`, `isUserKind`, `kindRuleViolation` | the kinds registry: signer model, status, id and count rule of each kind |
 | `signerModelOf(memo)` | which signer rule `expectSigner` applies to a memo |

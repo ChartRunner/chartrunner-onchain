@@ -1871,5 +1871,79 @@
         ]
       }
     ]
-  }
+  },
+  "fillsHash": [
+    {
+      "name": "no fills",
+      "fills": [],
+      "canonical": "[]",
+      "hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "name": "open, reduce with realized/net, final-sweep liquidation",
+      "fills": [
+        {
+          "t": 1760846400000,
+          "symbol": "SOL",
+          "side": "long",
+          "kind": "open",
+          "orderType": "market",
+          "qty": 12.5,
+          "price": 187.4321,
+          "fee": 1.17145063,
+          "realized": null,
+          "net": null,
+          "leverage": 5
+        },
+        {
+          "t": 1760847300250,
+          "symbol": "SOL",
+          "side": "long",
+          "kind": "reduce",
+          "orderType": "market",
+          "qty": 5,
+          "price": 191.2,
+          "fee": 0.478,
+          "realized": 18.8395,
+          "net": 18.3615,
+          "leverage": 5
+        },
+        {
+          "t": 1760860799999,
+          "symbol": "SOL",
+          "side": "long",
+          "kind": "liquidation",
+          "orderType": "liquidation",
+          "qty": 7.5,
+          "price": 150.12345678,
+          "fee": 0,
+          "realized": null,
+          "net": -280.4627,
+          "leverage": 5
+        }
+      ],
+      "canonical": "[{\"fee\":\"1.17145063\",\"kind\":\"open\",\"leverage\":5,\"net\":null,\"orderType\":\"market\",\"price\":\"187.43210000\",\"qty\":\"12.5000000000\",\"realized\":null,\"seq\":1,\"side\":\"long\",\"symbol\":\"SOL\",\"t\":1760846400000},{\"fee\":\"0.47800000\",\"kind\":\"reduce\",\"leverage\":5,\"net\":\"18.36150000\",\"orderType\":\"market\",\"price\":\"191.20000000\",\"qty\":\"5.0000000000\",\"realized\":\"18.83950000\",\"seq\":2,\"side\":\"long\",\"symbol\":\"SOL\",\"t\":1760847300250},{\"fee\":\"0.00000000\",\"kind\":\"liquidation\",\"leverage\":5,\"net\":\"-280.46270000\",\"orderType\":\"liquidation\",\"price\":\"150.12345678\",\"qty\":\"7.5000000000\",\"realized\":null,\"seq\":3,\"side\":\"long\",\"symbol\":\"SOL\",\"t\":1760860799999}]",
+      "hash": "d2f13a7274cfbfed4ec5b15f9c5ddb4ca1fb361f82bc371d9c542454e0effad4"
+    },
+    {
+      "name": "negative zero is written without the sign",
+      "fills": [
+        {
+          "t": 1760846400000,
+          "symbol": "BTC",
+          "side": "short",
+          "kind": "close",
+          "orderType": "market",
+          "qty": -1e-11,
+          "price": 65000,
+          "fee": 0,
+          "realized": -1e-9,
+          "net": -4e-10,
+          "leverage": 1
+        }
+      ],
+      "canonical": "[{\"fee\":\"0.00000000\",\"kind\":\"close\",\"leverage\":1,\"net\":\"0.00000000\",\"orderType\":\"market\",\"price\":\"65000.00000000\",\"qty\":\"0.0000000000\",\"realized\":\"0.00000000\",\"seq\":1,\"side\":\"short\",\"symbol\":\"BTC\",\"t\":1760846400000}]",
+      "hash": "62917553ecc089cd761fbe050241a0b62d84a01a5ca4b7e4929b9092cca3d02a"
+    }
+  ]
 }

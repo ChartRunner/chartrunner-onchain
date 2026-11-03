@@ -10,6 +10,10 @@ import {
   cupLeavesFromStandings,
   dailyRaceLeaf,
   dailyRunLeaf,
+  BATTLE_ORDER_TYPES,
+  fillsCanonical,
+  fillsCommitment,
+  fillsHash,
   formatMemo,
   isBattleLeaf,
   isBattleWindowId,
@@ -257,6 +261,54 @@ describe("battle kind (SPEC 2.2, 7.5)", () => {
     expect(battleLeafProblem({ ...leaf, h: null })).toMatch(/^h /);
     expect(battleLeafProblem(null)).not.toBeNull();
     expect(battleLeafProblem([leaf])).not.toBeNull();
+  });
+});
+
+describe("fillsHash (SPEC 7.2.1)", () => {
+  const fill = { t: 1760846400000, symbol: "SOL", side: "long", kind: "open", orderType: "market", qty: 12.5, price: 187.4321, fee: 1.17145063, realized: null, net: null, leverage: 5 } as const;
+
+  it("commits exactly the documented keys, seq is the 1-based position, extra fields are ignored", () => {
+    const c = fillsCommitment([{ ...fill, clientId: "x", internal: true } as typeof fill, { ...fill, kind: "close", realized: 1, net: 0.5 }]);
+    expect(Object.keys(c[0]!).sort()).toEqual(["fee", "kind", "leverage", "net", "orderType", "price", "qty", "realized", "seq", "side", "symbol", "t"]);
+    expect(c.map((f) => f.seq)).toEqual([1, 2]);
+    expect(c[1]).toMatchObject({ realized: "1.00000000", net: "0.50000000" });
+  });
+  it("formats numbers like toFixed, drops the sign of a negative zero, and accepts already fixed strings", async () => {
+    const c = fillsCommitment([{ ...fill, qty: 1e-11, price: "65000.00000000", fee: -0, realized: -1e-9, net: -12.345 }])[0]!;
+    expect(c).toMatchObject({ qty: "0.0000000000", price: "65000.00000000", fee: "0.00000000", realized: "0.00000000", net: "-12.34500000" });
+    expect(c.qty).toBe((1e-11).toFixed(10));
+    expect(await fillsHash([fill])).toBe(await fillsHash([{ ...fill, qty: "12.5000000000", price: "187.43210000", fee: "1.17145063" }]));
+    expect(await fillsHash([])).toBe("4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945");
+    expect(fillsCanonical([])).toBe("[]");
+  });
+  it("order matters: the list is hashed in submission order", async () => {
+    const other = { ...fill, kind: "close" as const, t: fill.t + 1 };
+    expect(await fillsHash([fill, other])).not.toBe(await fillsHash([other, fill]));
+  });
+  it("refuses values outside the definition", () => {
+    const bad: [string, Record<string, unknown>][] = [
+      ["wrong seq", { seq: 2 }],
+      ["float t", { t: 1.5 }],
+      ["string t", { t: "1760846400000" }],
+      ["empty symbol", { symbol: "" }],
+      ["unknown side", { side: "buy" }],
+      ["unknown kind", { kind: "flip" }],
+      ["unknown order type", { orderType: "twap" }],
+      ["float leverage", { leverage: 2.5 }],
+      ["NaN price", { price: Number.NaN }],
+      ["infinite fee", { fee: Number.POSITIVE_INFINITY }],
+      ["exponent from toFixed", { price: 1e21 }],
+      ["qty string with 8 decimals", { qty: "12.50000000" }],
+      ["price string with a plus", { price: `+${"187.43210000"}` }],
+      ["negative zero string", { fee: "-0.00000000" }],
+      ["leading zero string", { fee: "01.00000000" }],
+      ["undefined realized", { realized: undefined }],
+      ["boolean net", { net: false }],
+    ];
+    for (const [name, patch] of bad) expect(() => fillsCommitment([{ ...fill, ...patch } as typeof fill]), name).toThrow(/invalid fill 1/);
+    expect(() => fillsCommitment([{ ...fill, orderType: "limit" }], BATTLE_ORDER_TYPES)).toThrow(/orderType/);
+    expect(() => fillsCommitment([{ ...fill, kind: "liquidation", orderType: "liquidation" }], BATTLE_ORDER_TYPES)).not.toThrow();
+    expect(() => fillsCommitment(null as never)).toThrow();
   });
 });
 
